@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backend (added ahead of Phase A)
+.env
+.env.*.local
+backend/node_modules
+backend/dist
+backend/uploads

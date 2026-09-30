@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  IU Gamified HR — global theme
+  Palette sampled from the Islamic University of Madinah identity:
+  - Green  #006C35  (primary, matches the Saudi national green)
+  - Gold   #C8A45D  (accent — used sparingly for achievement, never as a fill)
+  - Navy   #1B2A4A  (ink / headings)
+  Tokens are HSL triplets so Tailwind + shadcn utilities can layer opacity.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 221 46% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 221 46% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 46% 16%;
+
+    --primary: 149 100% 21%;
+    --primary-foreground: 0 0% 100%;
+    --primary-muted: 149 40% 94%;
+
+    --secondary: 210 24% 96%;
+    --secondary-foreground: 221 46% 20%;
+
+    --muted: 210 24% 96%;
+    --muted-foreground: 221 14% 45%;
+
+    --accent: 40 49% 57%;
+    --accent-foreground: 221 46% 16%;
+
+    --gold: 40 49% 52%;
+    --gold-foreground: 0 0% 100%;
+
+    --success: 149 65% 34%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 89%;
+    --input: 220 20% 89%;
+    --ring: 149 100% 21%;
+
+    --radius: 0.7rem;
+  }
+
+  .dark {
+    --background: 221 41% 9%;
+    --foreground: 210 20% 96%;
+
+    --card: 221 38% 12%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 221 38% 12%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 149 58% 44%;
+    --primary-foreground: 221 41% 9%;
+    --primary-muted: 149 30% 18%;
+
+    --secondary: 221 30% 17%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 221 30% 17%;
+    --muted-foreground: 220 12% 65%;
+
+    --accent: 40 45% 60%;
+    --accent-foreground: 221 41% 9%;
+
+    --gold: 40 45% 58%;
+    --gold-foreground: 221 41% 9%;
+
+    --success: 149 52% 46%;
+    --success-foreground: 221 41% 9%;
+
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 221 24% 22%;
+    --input: 221 24% 22%;
+    --ring: 149 58% 44%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100vh;
+  }
+
+  /* Arabic / RTL typography — Tajawal reads better at a slightly larger size */
+  html[dir="rtl"] body {
+    @apply font-arabic;
+    letter-spacing: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold tracking-tight text-foreground;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  /* Subtle campus-inspired page backdrop */
+  .app-backdrop {
+    background-image:
+      radial-gradient(circle at 12% -10%, hsl(var(--primary) / 0.06), transparent 45%),
+      radial-gradient(circle at 100% 0%, hsl(var(--accent) / 0.07), transparent 40%);
+  }
+
+  .stat-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+}
+
+/* Recharts: inherit theme colours for axes + grid */
+.recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border));
+}

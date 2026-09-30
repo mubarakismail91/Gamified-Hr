@@ -1,0 +1,190 @@
+export type Role = "employee" | "manager" | "admin";
+
+export type Lang = "en" | "ar";
+
+/** A bilingual string. Every user-facing label in mock data carries both. */
+export interface Bi {
+  en: string;
+  ar: string;
+}
+
+export interface Department {
+  id: string;
+  name: Bi;
+  /** Staff id of the department's manager, or null if unassigned. */
+  managerId: string | null;
+}
+
+export interface StaffMember {
+  id: string;
+  name: Bi;
+  initials: string;
+  title: Bi;
+  /** FK into Department — drives quest visibility, team rosters, dept leaderboard. null = Admin (university-wide, no single department). */
+  departmentId: string | null;
+  /** Denormalised display label — kept in sync with the Department's name. */
+  department: Bi;
+  college: Bi;
+  role: Role;
+  gender: "male" | "female";
+  staffId: string;
+  email: string;
+  office: Bi;
+  joined: Date;
+  totalXp: number;
+  pointsThisWeek: number;
+  pointsThisMonth: number;
+  xpGainedThisMonth: number;
+  streakDays: number;
+  /** Ids of earned badges. */
+  badgeIds: string[];
+  /** Optional per-badge earned date override (falls back to `joined`). */
+  badgeEarnedOn?: Record<string, Date>;
+  /** Optional per-badge progress override for un-earned badges (0-100). */
+  badgeProgress?: Record<string, number>;
+  avatarTone: string;
+}
+
+export type QuestCadence = "daily" | "epic";
+export type QuestDifficulty = "easy" | "medium" | "hard";
+export type QuestState = "available" | "accepted" | "pending_approval" | "completed";
+
+/** The quest catalogue entry — created/edited by a Manager (own dept) or Admin (any dept, or university-wide). */
+export interface Quest {
+  id: string;
+  title: Bi;
+  description: Bi;
+  cadence: QuestCadence;
+  category: Bi;
+  difficulty: QuestDifficulty;
+  xp: number;
+  steps: number;
+  due?: Date;
+  /** null = university-wide (Admin only); otherwise scopes the quest to one department. */
+  departmentId: string | null;
+  /** Optional: assign to one specific person instead of the whole department. */
+  assigneeId?: string;
+  status: "published" | "draft";
+  createdBy: string;
+  /** Soft recommendation only — the Employee can still submit without a file either way. */
+  requireFile?: boolean;
+}
+
+/** One person's progress against a Quest. Absence of a row = "available" / not started. */
+export interface UserQuest {
+  userId: string;
+  questId: string;
+  state: QuestState;
+  stepsDone: number;
+  acceptedAt?: Date;
+  submittedAt?: Date;
+  approvedAt?: Date;
+  approvedBy?: string;
+  rejectionNote?: string;
+}
+
+/**
+ * A file-backed proof-of-work submission for one quest attempt. The actual file
+ * bytes live in IndexedDB (see src/store/fileStore.ts) keyed by `fileKey` —
+ * only metadata is kept here in the main (localStorage-persisted) demo state.
+ */
+export interface QuestSubmission {
+  id: string;
+  questId: string;
+  userId: string;
+  departmentId: string | null;
+  /** All file fields are optional — a submission may have no file attached at all. */
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  fileKey?: string;
+  notes?: string;
+  status: "pending" | "approved" | "denied";
+  submittedAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  feedback?: string;
+}
+
+/** Badge catalogue — earned status and progress are per-user (see StaffMember.badgeIds). */
+export interface Badge {
+  id: string;
+  name: Bi;
+  description: Bi;
+  howTo: Bi;
+  group: Bi;
+  icon: string;
+  tier: "bronze" | "silver" | "gold";
+}
+
+export type SkillState = "unlocked" | "in-progress" | "locked";
+
+export interface SkillNode {
+  id: string;
+  name: Bi;
+  branch: "teaching" | "research" | "leadership" | "digital";
+  description: Bi;
+  state: SkillState;
+  level: number;
+  maxLevel: number;
+  requires?: string[];
+  col: number;
+  row: number;
+}
+
+export interface Kudo {
+  id: string;
+  fromId: string;
+  toId: string;
+  value: "collaboration" | "excellence" | "initiative" | "mentorship" | "service" | "integrity";
+  message: Bi;
+  at: Date;
+}
+
+export type ActivityKind = "xp" | "badge" | "quest" | "kudo" | "level" | "skill";
+
+export interface ActivityItem {
+  id: string;
+  userId: string;
+  kind: ActivityKind;
+  text: Bi;
+  xp?: number;
+  at: Date;
+}
+
+export type NotificationKind = "xp" | "badge" | "social" | "quest" | "system";
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  kind: NotificationKind;
+  title: Bi;
+  body: Bi;
+  at: Date;
+  read: boolean;
+}
+
+export interface LeaderboardRow {
+  staffId: string;
+  points: number;
+  progress: number;
+  deltaRank: number;
+}
+
+export interface SurveyRound {
+  id: string;
+  title: Bi;
+  quarter: string;
+  status: "open" | "closed" | "scheduled";
+  responses: number;
+  target: number;
+  opens: Date;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: Date;
+  actor: Bi;
+  action: Bi;
+  target: Bi;
+}
