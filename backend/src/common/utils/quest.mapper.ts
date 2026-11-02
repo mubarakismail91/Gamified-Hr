@@ -1,4 +1,5 @@
 import type { Prisma, Quest, QuestAssignment, QuestSubmission } from '@prisma/client';
+import { isExpired } from './quest-expiry.util';
 import type { QuestDto, AssignmentDto, SubmissionDto } from '../dto/quest.dto';
 
 /** Pass as `include` on every quest query whose result goes through toQuestDto. */
@@ -23,6 +24,7 @@ export function toQuestDto(q: QuestWithRelations): QuestDto {
     xp: q.xp,
     steps: q.steps,
     due: q.dueAt ?? undefined,
+    expired: isExpired(q),
     departmentId: q.departmentId,
     assigneeId: q.assigneeId ?? undefined,
     status: q.status,

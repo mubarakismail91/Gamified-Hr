@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { isAxiosError } from "axios";
-import { ArrowDown, ArrowUp, ClipboardList, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardList, Paperclip, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -56,6 +56,15 @@ const ATTACHMENT_EXTENSIONS = [
 const ATTACHMENT_ACCEPT = ATTACHMENT_EXTENSIONS.map((ext) => `.${ext}`).join(",");
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+/** Deadlines are whole days: a quest stays open through the end of the chosen date, local time. */
+const toDateInput = (d?: Date | string) => {
+  if (!d) return "";
+  const date = new Date(d);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+const endOfDayIso = (dateInput: string) => new Date(`${dateInput}T23:59:59`).toISOString();
+
 type SubtaskDraft = { id?: string; titleEn: string; descriptionEn: string };
 
 const UNIVERSITY_WIDE = "__all__";
@@ -75,6 +84,8 @@ type Draft = {
   requireFile: boolean;
   instructionsEn: string;
   estimatedMinutes: string;
+  /** yyyy-mm-dd, or empty for no deadline. */
+  dueDate: string;
   subtasks: SubtaskDraft[];
   /** Files already stored on the quest (edit mode). */
   attachments: QuestAttachment[];
@@ -98,6 +109,7 @@ function emptyDraft(fixedDepartmentId?: string): Draft {
     requireFile: false,
     instructionsEn: "",
     estimatedMinutes: "",
+    dueDate: "",
     subtasks: [],
     attachments: [],
     newFiles: [],
@@ -128,6 +140,7 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
 
   const [editing, setEditing] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState<Quest | null>(null);
+  const [reactivating, setReactivating] = useState<{ quest: Quest; dueDate: string } | null>(null);
 
   const openNew = () => setEditing(emptyDraft(fixedDepartmentId));
   const openEdit = (q: Quest) =>
@@ -145,6 +158,7 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
       requireFile: q.requireFile ?? false,
       instructionsEn: q.instructions?.en ?? "",
       estimatedMinutes: q.estimatedMinutes ? String(q.estimatedMinutes) : "",
+      dueDate: toDateInput(q.due),
       subtasks: (q.subtasks ?? []).map((st) => ({ id: st.id, titleEn: st.title.en, descriptionEn: st.description.en })),
       attachments: q.attachments ?? [],
       newFiles: [],
@@ -167,6 +181,7 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
       status: editing.status,
       requireFile: editing.requireFile,
       instructionsEn: editing.instructionsEn,
+      dueAt: editing.dueDate ? endOfDayIso(editing.dueDate) : editing.id ? null : undefined,
       estimatedMinutes: Number(editing.estimatedMinutes) > 0 ? Number(editing.estimatedMinutes) : undefined,
       subtasks: editing.subtasks
         .filter((st) => st.titleEn.trim())
@@ -188,6 +203,20 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
       setEditing(null);
     } catch (err) {
       toast.error(errorMessage(err, t("admin.newQuest")));
+    }
+  };
+
+  const confirmReactivate = async () => {
+    if (!reactivating) return;
+    try {
+      await updateQuest.mutateAsync({
+        id: reactivating.quest.id,
+        patch: { dueAt: reactivating.dueDate ? endOfDayIso(reactivating.dueDate) : null },
+      });
+      toast.success(t("admin.reactivatedToast"), { description: t2(reactivating.quest.title) });
+      setReactivating(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.reactivate")));
     }
   };
 
@@ -305,12 +334,31 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={q.status === "published" ? "success" : "muted"}>
-                        {q.status === "published" ? t("admin.statusPublished") : t("admin.statusDraft")}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={q.status === "published" ? "success" : "muted"}>
+                          {q.status === "published" ? t("admin.statusPublished") : t("admin.statusDraft")}
+                        </Badge>
+                        {q.expired && <Badge variant="destructive">{t("admin.expired")}</Badge>}
+                      </div>
+                      {q.due && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t("admin.deadlineShort", { date: toDateInput(q.due) })}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        {q.expired && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setReactivating({ quest: q, dueDate: "" })}
+                            aria-label={t("admin.reactivate")}
+                            title={t("admin.reactivate")}
+                          >
+                            <RotateCcw className="h-4 w-4 text-primary" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => openEdit(q)} aria-label={t("common.edit")}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -374,6 +422,27 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
                   value={editing.estimatedMinutes}
                   onChange={(e) => setEditing({ ...editing, estimatedMinutes: e.target.value })}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t("admin.deadlineLabel")}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={editing.dueDate}
+                    onChange={(e) => setEditing({ ...editing, dueDate: e.target.value })}
+                  />
+                  {editing.dueDate && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditing({ ...editing, dueDate: "" })}
+                    >
+                      {t("admin.clearDeadline")}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{t("admin.deadlineHint")}</p>
               </div>
 
               <div className="space-y-2">
@@ -646,6 +715,39 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
             </Button>
             <Button onClick={save} disabled={createQuest.isPending || updateQuest.isPending}>
               {t("common.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reactivate an expired quest */}
+      <Dialog open={!!reactivating} onOpenChange={(o) => !o && setReactivating(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("admin.reactivate")}</DialogTitle>
+          </DialogHeader>
+          {reactivating && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {t("admin.reactivateHint", { name: t2(reactivating.quest.title) })}
+              </p>
+              <div className="space-y-1.5">
+                <Label>{t("admin.newDeadlineLabel")}</Label>
+                <Input
+                  type="date"
+                  value={reactivating.dueDate}
+                  min={toDateInput(new Date())}
+                  onChange={(e) => setReactivating({ ...reactivating, dueDate: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReactivating(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={confirmReactivate} disabled={updateQuest.isPending}>
+              {t("admin.reactivate")}
             </Button>
           </DialogFooter>
         </DialogContent>

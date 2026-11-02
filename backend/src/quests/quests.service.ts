@@ -34,7 +34,18 @@ export class QuestsService {
       where: {
         status: 'published',
         OR: [{ departmentId: null }, { departmentId: employee.departmentId ?? undefined }],
-        AND: [{ OR: [{ assigneeId: null }, { assigneeId: viewer.id }] }],
+        AND: [
+          { OR: [{ assigneeId: null }, { assigneeId: viewer.id }] },
+          // Expired quests disappear — except ones this employee already finished or has awaiting review,
+          // so their history doesn't vanish.
+          {
+            OR: [
+              { dueAt: null },
+              { dueAt: { gt: new Date() } },
+              { assignments: { some: { employeeId: viewer.id, status: { in: ['completed', 'pending_approval'] } } } },
+            ],
+          },
+        ],
       },
       include: questInclude,
       orderBy: { createdAt: 'desc' },

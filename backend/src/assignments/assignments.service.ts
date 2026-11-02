@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
 import { assignmentInclude, questInclude, toAssignmentDto, toQuestDto, toSubmissionDto } from '../common/utils/quest.mapper';
 import { buildStaffMemberDto } from '../common/utils/build-staff-member';
+import { assertNotExpired } from '../common/utils/quest-expiry.util';
 import { logAudit } from '../common/utils/audit.util';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import type { AssignmentDto, PendingApprovalDto, SubmissionHistoryRowDto } from '../common/dto/quest.dto';
@@ -22,6 +23,7 @@ export class AssignmentsService {
   async accept(questId: string, employee: AuthenticatedUser): Promise<AssignmentDto> {
     const quest = await this.prisma.quest.findUnique({ where: { id: questId } });
     if (!quest || quest.status !== 'published') throw new NotFoundException('Quest not found.');
+    assertNotExpired(quest);
 
     const employeeRow = await this.prisma.user.findUniqueOrThrow({ where: { id: employee.id } });
     const visible =
@@ -47,6 +49,7 @@ export class AssignmentsService {
       throw new BadRequestException('This quest is not in progress.');
     }
     const quest = await this.prisma.quest.findUniqueOrThrow({ where: { id: assignment.questId } });
+    assertNotExpired(quest);
     if ((await this.prisma.questSubtask.count({ where: { questId: quest.id } })) > 0) {
       throw new BadRequestException('Tick off the quest\'s subtasks instead.');
     }
@@ -66,6 +69,7 @@ export class AssignmentsService {
     }
     const subtask = await this.prisma.questSubtask.findUnique({ where: { id: subtaskId } });
     if (!subtask || subtask.questId !== assignment.questId) throw new NotFoundException('Subtask not found.');
+    assertNotExpired(await this.prisma.quest.findUniqueOrThrow({ where: { id: assignment.questId } }));
 
     const key = { assignmentId_subtaskId: { assignmentId: assignment.id, subtaskId } };
     const ticked = await this.prisma.assignmentSubtask.findUnique({ where: key });

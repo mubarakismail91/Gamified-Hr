@@ -19,7 +19,8 @@ export interface CreateQuestInput {
   difficulty?: QuestDifficulty;
   xp: number;
   steps?: number;
-  dueAt?: string;
+  /** ISO timestamp; `null` clears an existing deadline (update only). */
+  dueAt?: string | null;
   requireFile?: boolean;
   status?: Quest["status"];
   departmentId?: string | null;

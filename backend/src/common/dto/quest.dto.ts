@@ -11,6 +11,8 @@ export interface QuestDto {
   xp: number;
   steps: number;
   due?: Date;
+  /** True once `due` has passed — hidden from employees until a manager moves or clears the deadline. */
+  expired: boolean;
   departmentId: string | null;
   assigneeId?: string;
   status: 'published' | 'draft';

@@ -48,7 +48,7 @@ export class UpdateQuestDto {
 
   @IsOptional()
   @IsDateString()
-  dueAt?: string;
+  dueAt?: string | null;
 
   @IsOptional()
   @IsBoolean()

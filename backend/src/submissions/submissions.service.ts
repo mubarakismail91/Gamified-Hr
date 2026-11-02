@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
+import { assertNotExpired } from '../common/utils/quest-expiry.util';
 import { toSubmissionDto } from '../common/utils/quest.mapper';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import type { SubmissionDto } from '../common/dto/quest.dto';
@@ -22,6 +23,7 @@ export class SubmissionsService {
       throw new BadRequestException('This quest is not ready to submit.');
     }
     const quest = await this.prisma.quest.findUniqueOrThrow({ where: { id: assignment.questId } });
+    assertNotExpired(quest);
     if (assignment.stepsDone < quest.steps) {
       throw new BadRequestException('Complete all steps before submitting.');
     }

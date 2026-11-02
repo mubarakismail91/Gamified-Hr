@@ -64,6 +64,8 @@ export interface Quest {
   xp: number;
   steps: number;
   due?: Date;
+  /** True once the deadline has passed; hidden from employees until a manager reactivates it. */
+  expired?: boolean;
   /** null = university-wide (Admin only); otherwise scopes the quest to one department. */
   departmentId: string | null;
   /** Optional: assign to one specific person instead of the whole department. */
