@@ -1,13 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BadgesService } from '../badges/badges.service';
 import { logAudit } from '../common/utils/audit.util';
 import { CreateSurveyRoundDto } from './dto/create-survey-round.dto';
 import { DEFAULT_QUESTION_KEYS, SURVEY_QUESTION_BANK } from './survey-question-bank';
 import { SubmitSurveyResponseDto } from './dto/submit-survey-response.dto';
 import type { ActiveSurveyDto, SdtScoresResultDto, SurveyRoundDto, SurveyRoundStatus } from './dto/survey.dto';
 
-const SURVEY_XP_BONUS = 20;
 /** Below this many respondents, averages aren't reported — same principle the original plan flagged as non-negotiable for survey anonymity. */
 const K_ANONYMITY_THRESHOLD = 5;
 
@@ -26,10 +24,7 @@ function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyR
 
 @Injectable()
 export class SurveysService {
-  constructor(
-    private prisma: PrismaService,
-    private badges: BadgesService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findAllRounds(): Promise<SurveyRoundDto[]> {
     const rounds = await this.prisma.surveyRound.findMany({
@@ -151,31 +146,7 @@ export class SurveysService {
     await this.prisma.$transaction([
       this.prisma.surveyResponse.create({ data: { roundId, answers: dto.answers } }),
       this.prisma.surveyParticipation.create({ data: { roundId, userId } }),
-      this.prisma.user.update({ where: { id: userId }, data: { totalXp: { increment: SURVEY_XP_BONUS } } }),
-      this.prisma.activityLog.create({
-        data: {
-          userId,
-          kind: 'xp',
-          textEn: `Completed survey: ${round.titleEn}`,
-          textAr: `أكمل الاستبيان: ${round.titleAr}`,
-          xpDelta: SURVEY_XP_BONUS,
-          refType: 'SurveyRound',
-          refId: round.id,
-        },
-      }),
-      this.prisma.notification.create({
-        data: {
-          userId,
-          kind: 'xp',
-          titleEn: `+${SURVEY_XP_BONUS} XP`,
-          titleAr: `+${SURVEY_XP_BONUS} نقطة خبرة`,
-          bodyEn: `Thanks for completing "${round.titleEn}".`,
-          bodyAr: `شكرًا لإكمالك "${round.titleAr}".`,
-        },
-      }),
     ]);
-
-    await this.badges.evaluate(userId);
   }
 
   /** The given round's averages, or the latest closed round's if none given. Suppressed under the k-anonymity threshold. */

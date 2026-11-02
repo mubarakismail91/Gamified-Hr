@@ -47,9 +47,6 @@ export function useSubmitSurveyResponseMutation() {
       surveyApi.submitSurveyResponse(roundId, answers),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["surveys"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
   });
 }

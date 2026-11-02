@@ -240,7 +240,7 @@ export const en = {
   },
   surveys: {
     title: "Pulse Surveys",
-    subtitle: "A few quick questions — anonymous, and it only takes a minute.",
+    subtitle: "A few quick questions — anonymous, optional, and it only takes a minute. Taking part earns no points and skipping has no consequence.",
     empty: "No surveys need your attention right now.",
     anonymousNote: "Your answers are anonymous — we can't see who submitted what.",
     start: "Start",
