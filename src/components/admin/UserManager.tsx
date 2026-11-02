@@ -57,11 +57,13 @@ type UserDraft = {
   /** null = university-wide (Admin only). */
   departmentId: string | null;
   role: Role;
+  /** Empty until chosen — a new user must have one picked, so the demographics chart never counts a silent default. */
+  gender: "male" | "female" | "";
   startingXp: number;
 };
 
 function emptyDraft(firstDeptId: string): UserDraft {
-  return { nameEn: "", email: "", titleEn: "", departmentId: firstDeptId, role: "employee", startingXp: 0 };
+  return { nameEn: "", email: "", titleEn: "", departmentId: firstDeptId, role: "employee", gender: "", startingXp: 0 };
 }
 
 const ALL_DEPARTMENTS = "__all__";
@@ -145,11 +147,16 @@ export function UserManager() {
       titleEn: u.title.en,
       departmentId: u.departmentId,
       role: u.role,
+      gender: u.gender,
       startingXp: u.totalXp,
     });
 
   const save = async () => {
     if (!editing || !editing.nameEn.trim() || !editing.email.trim()) return;
+    if (!editing.gender) {
+      toast.error(t("admin.genderRequired"));
+      return;
+    }
     try {
       if (editing.id) {
         await updateUser.mutateAsync({
@@ -160,6 +167,7 @@ export function UserManager() {
             titleEn: editing.titleEn,
             departmentId: editing.departmentId,
             role: editing.role,
+            gender: editing.gender,
           },
         });
         toast.success(t("common.saveChanges"));
@@ -170,6 +178,7 @@ export function UserManager() {
           titleEn: editing.titleEn,
           departmentId: editing.departmentId,
           role: editing.role,
+          gender: editing.gender,
           startingXp: editing.startingXp,
         });
         setCreatedCreds({
@@ -385,6 +394,21 @@ export function UserManager() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("admin.genderLabel")}</Label>
+                <Select
+                  value={editing.gender}
+                  onValueChange={(v) => setEditing({ ...editing, gender: v as UserDraft["gender"] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("admin.genderPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">{t("admin.genderMale")}</SelectItem>
+                    <SelectItem value="female">{t("admin.genderFemale")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {!editing.id && (
                 <div className="space-y-1.5">
