@@ -92,4 +92,3 @@ Doc/                  project reports and presentations
 - `public/iu-mark.svg` is a neutral placeholder emblem, not the official university crest.
 - Survey questions are adapted from common workplace SDT measures (Deci et al., 2001; Van den Broeck et al., 2010). The wording is paraphrased and has not been validated as a set.
 - Dates render in Gregorian and Hijri (Umm al-Qura) via the `Intl` API.
-- Project plan: see [`PHASE_2_PLAN.md`](PHASE_2_PLAN.md).
