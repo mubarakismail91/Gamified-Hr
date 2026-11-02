@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DateStamp } from "@/components/common/DateStamp";
 import { NotificationKindIcon } from "@/components/notifications/NotificationKindIcon";
-import { useMyNotifications } from "@/store/hooks";
+import { useMyNotifications } from "@/queries/useNotifications";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import type { NotificationKind } from "@/data";

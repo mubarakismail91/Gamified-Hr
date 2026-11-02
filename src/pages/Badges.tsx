@@ -17,8 +17,10 @@ import { BadgeIcon } from "@/components/common/BadgeIcon";
 import { DateStamp } from "@/components/common/DateStamp";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
-import { useMyBadges } from "@/store/hooks";
-import type { BadgeView } from "@/store/selectors";
+import { toast } from "sonner";
+import { Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MAX_FEATURED_BADGES, useMyBadges, useSetFeaturedBadgesMutation } from "@/queries/useBadges";
 
 const TIER_RING = {
   bronze: "ring-amber-700/30 bg-amber-700/10 text-amber-800",
@@ -32,8 +34,20 @@ export default function Badges() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [active, setActive] = useState<BadgeView | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const badges = useMyBadges();
+  const setFeatured = useSetFeaturedBadgesMutation();
+  // Derived from the live list (not a snapshot) so the dialog reflects a feature/unfeature immediately.
+  const active = badges.all.find((b) => b.id === activeId) ?? null;
+
+  const toggleFeatured = (badgeId: string) => {
+    const isFeatured = badges.featuredIds.includes(badgeId);
+    const next = isFeatured ? badges.featuredIds.filter((id) => id !== badgeId) : [...badges.featuredIds, badgeId];
+    setFeatured.mutate(next, {
+      onSuccess: () => toast.success(t(isFeatured ? "badges.unfeaturedToast" : "badges.featuredToast")),
+      onError: () => toast.error(t("badges.featureError")),
+    });
+  };
 
   const list = useMemo(
     () =>
@@ -66,7 +80,7 @@ export default function Badges() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {list.map((b) => (
-          <button key={b.id} onClick={() => setActive(b)} className="text-start">
+          <button key={b.id} onClick={() => setActiveId(b.id)} className="text-start">
             <Card
               className={cn(
                 "h-full transition-shadow hover:shadow-elevated",
@@ -81,6 +95,11 @@ export default function Badges() {
                   )}
                 >
                   <BadgeIcon name={b.icon} className="h-7 w-7" />
+                  {b.featuredOrder !== undefined && (
+                    <span className="absolute -end-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-background bg-gold text-gold-foreground">
+                      <Star className="h-2.5 w-2.5 fill-current" />
+                    </span>
+                  )}
                   {!b.earned && (
                     <span className="absolute -end-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted">
                       <Lock className="h-3 w-3 text-muted-foreground" />
@@ -95,11 +114,13 @@ export default function Badges() {
                   <Badge variant="success" className="mt-auto">
                     {t("badges.earned")}
                   </Badge>
+                ) : b.manual ? (
+                  <p className="mt-auto text-[11px] text-muted-foreground">{t("badges.manualAward")}</p>
                 ) : (
                   <div className="mt-auto w-full space-y-1">
                     <Progress value={b.progressPct ?? 0} className="h-1.5" />
                     <p className="text-[11px] text-muted-foreground">
-                      {t("badges.progressToward", { pct: formatNumber(b.progressPct ?? 0, lang) })}
+                      {formatNumber(b.progressCurrent ?? 0, lang)} / {formatNumber(b.progressTarget ?? 0, lang)}
                     </p>
                   </div>
                 )}
@@ -109,7 +130,7 @@ export default function Badges() {
         ))}
       </div>
 
-      <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+      <Dialog open={!!active} onOpenChange={(o) => !o && setActiveId(null)}>
         <DialogContent>
           {active && (
             <>
@@ -139,14 +160,44 @@ export default function Badges() {
               </div>
 
               {active.earned ? (
-                <p className="flex items-center gap-1.5 text-sm text-success">
-                  <span className="font-medium">{t("badges.earned")}</span>
-                  {active.earnedOn && <DateStamp date={active.earnedOn} inline className="text-success/80" />}
-                </p>
+                <div className="space-y-3">
+                  <p className="flex items-center gap-1.5 text-sm text-success">
+                    <span className="font-medium">{t("badges.earned")}</span>
+                    {active.earnedOn && <DateStamp date={active.earnedOn} inline className="text-success/80" />}
+                  </p>
+                  <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      {t("badges.featureHint", {
+                        n: formatNumber(badges.featuredIds.length, lang),
+                        max: formatNumber(MAX_FEATURED_BADGES, lang),
+                      })}
+                    </p>
+                    {(() => {
+                      const isFeatured = active.featuredOrder !== undefined;
+                      const full = !isFeatured && badges.featuredIds.length >= MAX_FEATURED_BADGES;
+                      return (
+                        <Button
+                          size="sm"
+                          variant={isFeatured ? "secondary" : "default"}
+                          className="shrink-0 gap-1.5"
+                          disabled={full || setFeatured.isPending}
+                          onClick={() => toggleFeatured(active.id)}
+                        >
+                          <Star className={cn("h-4 w-4", isFeatured && "fill-current")} />
+                          {t(isFeatured ? "badges.unfeature" : full ? "badges.showcaseFull" : "badges.feature")}
+                        </Button>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : active.manual ? (
+                <p className="text-sm text-muted-foreground">{t("badges.manualAward")}</p>
               ) : (
                 <div className="space-y-1">
                   <Progress value={active.progressPct ?? 0} />
                   <p className="text-xs text-muted-foreground">
+                    {formatNumber(active.progressCurrent ?? 0, lang)} / {formatNumber(active.progressTarget ?? 0, lang)}
+                    {" · "}
                     {t("badges.progressToward", { pct: formatNumber(active.progressPct ?? 0, lang) })}
                   </p>
                 </div>

@@ -14,13 +14,16 @@ import { StatCard } from "@/components/common/StatCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { useSession } from "@/context/SessionContext";
 import { useDemoData } from "@/store/DemoDataContext";
-import { useMyActivity, useMyBadges } from "@/store/hooks";
-import { completedQuestCount, kudosReceived } from "@/store/selectors";
+import { useMyActivity } from "@/store/hooks";
+import { completedQuestCount } from "@/store/selectors";
+import { useMyBadges } from "@/queries/useBadges";
+import { useKudosQuery } from "@/queries/useKudos";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import { levelFromXp } from "@/lib/xp";
 import { canViewBadges, canViewSkillTree } from "@/lib/permissions";
-import { SKILLS, type SkillNode } from "@/data";
+import type { SkillNode } from "@/data";
+import { useSkillsQuery } from "@/queries/useSkills";
 
 const TIER_RING = {
   bronze: "ring-amber-700/30 bg-amber-700/10 text-amber-800",
@@ -45,7 +48,10 @@ export default function Profile() {
   const prog = levelFromXp(user.totalXp);
   const rankName = lang === "ar" ? prog.current.nameAr : prog.current.nameEn;
   const badges = useMyBadges();
-  const kudos = kudosReceived(state, user.id);
+  const kudosQuery = useKudosQuery();
+  const kudos = (kudosQuery.data ?? []).filter((k) => k.toId === user.id);
+  const skillsQuery = useSkillsQuery();
+  const SKILLS = skillsQuery.data ?? [];
   const showBadges = canViewBadges(role);
   const showSkills = canViewSkillTree(role);
 
@@ -174,7 +180,9 @@ export default function Profile() {
                       <DateStamp date={b.earnedOn} inline />
                     ) : (
                       <p className="text-[11px] text-muted-foreground">
-                        {t("badges.progressToward", { pct: formatNumber(b.progressPct ?? 0, lang) })}
+                        {b.manual
+                          ? t("badges.manualAward")
+                          : t("badges.progressToward", { pct: formatNumber(b.progressPct ?? 0, lang) })}
                       </p>
                     )}
                   </CardContent>

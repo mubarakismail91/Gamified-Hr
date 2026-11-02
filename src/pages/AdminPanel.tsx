@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Lock,
+  Plus,
   RotateCcw,
   ScrollText,
   Users,
@@ -27,13 +28,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -55,16 +49,34 @@ import { UserManager } from "@/components/admin/UserManager";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useDemoData } from "@/store/DemoDataContext";
+import { useAuditQuery } from "@/queries/useAudit";
+import { useAnalyticsOverviewQuery, useDemographicsQuery } from "@/queries/useAnalytics";
+import { useSdtScoresQuery, useSurveyRoundsQuery, useCreateSurveyRoundMutation } from "@/queries/useSurveys";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
-import { ADMIN_KPIS, DEMOGRAPHICS, SURVEYS } from "@/data";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
-  const { role, user } = useSession();
-  const { state, resetToSeed } = useDemoData();
+  const { role } = useSession();
+  const { resetToSeed } = useDemoData();
+  const auditQuery = useAuditQuery();
+  const overviewQuery = useAnalyticsOverviewQuery();
+  const demographicsQuery = useDemographicsQuery();
+  const surveyRoundsQuery = useSurveyRoundsQuery();
+  const sdtScoresQuery = useSdtScoresQuery();
+  const createSurveyRound = useCreateSurveyRoundMutation();
   const [resetOpen, setResetOpen] = useState(false);
+  const [newRoundOpen, setNewRoundOpen] = useState(false);
+  const [roundTitleEn, setRoundTitleEn] = useState("");
+  const [roundTitleAr, setRoundTitleAr] = useState("");
+  const [roundQuarter, setRoundQuarter] = useState("");
+  const [roundOpensAt, setRoundOpensAt] = useState("");
+  const [roundClosesAt, setRoundClosesAt] = useState("");
+
+  const kpis = overviewQuery.data?.kpis;
 
   if (role !== "admin") {
     return (
@@ -86,6 +98,35 @@ export default function AdminPanel() {
     setResetOpen(false);
   };
 
+  const openNewRound = () => {
+    setRoundTitleEn("");
+    setRoundTitleAr("");
+    setRoundQuarter("");
+    setRoundOpensAt(new Date().toISOString().slice(0, 10));
+    setRoundClosesAt("");
+    setNewRoundOpen(true);
+  };
+
+  const submitNewRound = () => {
+    if (!roundTitleEn.trim() || !roundQuarter.trim() || !roundOpensAt) return;
+    createSurveyRound.mutate(
+      {
+        titleEn: roundTitleEn.trim(),
+        titleAr: roundTitleAr.trim() || undefined,
+        quarter: roundQuarter.trim(),
+        opensAt: new Date(roundOpensAt).toISOString(),
+        closesAt: roundClosesAt ? new Date(roundClosesAt).toISOString() : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t("admin.surveyCreateToast"));
+          setNewRoundOpen(false);
+        },
+        onError: () => toast.error(t("admin.newSurveyRound")),
+      },
+    );
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -103,24 +144,24 @@ export default function AdminPanel() {
         <StatCard
           icon={Users}
           label={t("admin.kpiActive")}
-          value={formatNumber(ADMIN_KPIS.activeParticipants, lang)}
-          hint={`/ ${formatNumber(ADMIN_KPIS.totalEligible, lang)}`}
+          value={formatNumber(kpis?.activeParticipants ?? 0, lang)}
+          hint={`/ ${formatNumber(kpis?.totalEligible ?? 0, lang)}`}
         />
         <StatCard
           icon={Activity}
           label={t("admin.kpiParticipation")}
-          value={`${formatNumber(ADMIN_KPIS.participationRate, lang)}%`}
+          value={`${formatNumber(kpis?.participationRate ?? 0, lang)}%`}
           tone="gold"
         />
         <StatCard
           icon={ClipboardList}
           label={t("admin.kpiKudos")}
-          value={formatNumber(ADMIN_KPIS.kudos30d, lang)}
+          value={formatNumber(kpis?.kudos30d ?? 0, lang)}
         />
         <StatCard
           icon={BarChart3}
           label={t("admin.kpiQuests")}
-          value={formatNumber(ADMIN_KPIS.quests30d, lang)}
+          value={formatNumber(kpis?.questsCompleted30d ?? 0, lang)}
           tone="muted"
         />
       </div>
@@ -143,7 +184,7 @@ export default function AdminPanel() {
               <CardTitle>{t("admin.engagementOverTime")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ParticipationChart />
+              <ParticipationChart data={overviewQuery.data?.participationTrend ?? []} />
             </CardContent>
           </Card>
           <Card>
@@ -151,7 +192,7 @@ export default function AdminPanel() {
               <CardTitle>{t("admin.xpByDept")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <XpByDeptChart />
+              <XpByDeptChart data={overviewQuery.data?.xpByDepartment ?? []} />
             </CardContent>
           </Card>
           <Card>
@@ -159,7 +200,7 @@ export default function AdminPanel() {
               <CardTitle>{t("admin.badgeDistribution")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <BadgeDistributionChart />
+              <BadgeDistributionChart data={overviewQuery.data?.badgeDistribution ?? []} />
             </CardContent>
           </Card>
           <Card>
@@ -167,41 +208,29 @@ export default function AdminPanel() {
               <CardTitle>{t("admin.tabs.surveys")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <SdtScoresChart />
+              {sdtScoresQuery.data?.suppressed ? (
+                <p className="flex h-[200px] items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                  {t("admin.sdtScoresSuppressed")}
+                </p>
+              ) : (
+                <SdtScoresChart data={sdtScoresQuery.data?.scores ?? []} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Demographics */}
+        {/* Demographics — gender only for now: the other demo dimensions
+            (academic/administrative split, college) aren't backed by real
+            data yet (no employmentType column; college is never set by the
+            real user form), so they're dropped rather than shown empty. */}
         <TabsContent value="demographics" className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <FilterSelect label={t("admin.filterCollege")} />
-            <FilterSelect label={t("admin.filterRole")} />
-            <FilterSelect label={t("admin.filterGender")} />
-          </div>
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.filterRole")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DemographicsBar data={DEMOGRAPHICS.byRole} />
-              </CardContent>
-            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>{t("admin.filterGender")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <DemographicsBar data={DEMOGRAPHICS.byGender} />
-              </CardContent>
-            </Card>
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>{t("admin.filterCollege")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DemographicsBar data={DEMOGRAPHICS.byCollege} />
+                <DemographicsBar data={demographicsQuery.data?.byGender ?? []} />
               </CardContent>
             </Card>
           </div>
@@ -219,22 +248,28 @@ export default function AdminPanel() {
 
         {/* Quest management (university-wide) */}
         <TabsContent value="quests">
-          <QuestManager createdBy={user.id} />
+          <QuestManager />
         </TabsContent>
 
         {/* Surveys */}
         <TabsContent value="surveys" className="space-y-4">
           <Card>
-            <CardContent className="flex items-start gap-3 p-4 text-sm text-muted-foreground">
-              <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0" />
-              <div>
-                <p className="font-medium text-foreground">{t("admin.surveyTitle")}</p>
-                <p>{t("admin.surveyDesc")}</p>
+            <CardContent className="flex items-start justify-between gap-3 p-4 text-sm text-muted-foreground">
+              <div className="flex items-start gap-3">
+                <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="font-medium text-foreground">{t("admin.surveyTitle")}</p>
+                  <p>{t("admin.surveyDesc")}</p>
+                </div>
               </div>
+              <Button size="sm" className="shrink-0 gap-2" onClick={openNewRound}>
+                <Plus className="h-4 w-4" />
+                {t("admin.newSurveyRound")}
+              </Button>
             </CardContent>
           </Card>
           <div className="grid gap-4 md:grid-cols-3">
-            {SURVEYS.map((s) => {
+            {(surveyRoundsQuery.data ?? []).map((s) => {
               const pct = s.target ? Math.round((s.responses / s.target) * 100) : 0;
               return (
                 <Card key={s.id}>
@@ -287,7 +322,7 @@ export default function AdminPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {state.audit.map((a) => (
+                {(auditQuery.data ?? []).map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="whitespace-nowrap">
                       <DateStamp date={a.at} relative inline />
@@ -322,24 +357,51 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-function FilterSelect({ label }: { label: string }) {
-  const { t } = useTranslation();
-  const [v, setV] = useState("all");
-  return (
-    <label className="space-y-1.5">
-      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
-      <Select value={v} onValueChange={setV}>
-        <SelectTrigger className="w-44">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t("admin.filterAll")}</SelectItem>
-        </SelectContent>
-      </Select>
-    </label>
+      <Dialog open={newRoundOpen} onOpenChange={setNewRoundOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("admin.newSurveyRound")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t("admin.surveyRoundTitleLabel")} (EN)</Label>
+                <Input value={roundTitleEn} onChange={(e) => setRoundTitleEn(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("admin.surveyRoundTitleLabel")} (AR)</Label>
+                <Input value={roundTitleAr} onChange={(e) => setRoundTitleAr(e.target.value)} dir="rtl" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("admin.surveyQuarterLabel")}</Label>
+              <Input value={roundQuarter} onChange={(e) => setRoundQuarter(e.target.value)} placeholder="Q1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t("admin.surveyOpensLabel")}</Label>
+                <Input type="date" value={roundOpensAt} onChange={(e) => setRoundOpensAt(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("admin.surveyClosesLabel")}</Label>
+                <Input type="date" value={roundClosesAt} onChange={(e) => setRoundClosesAt(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewRoundOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={submitNewRound}
+              disabled={createSurveyRound.isPending || !roundTitleEn.trim() || !roundQuarter.trim() || !roundOpensAt}
+            >
+              {t("admin.surveyCreateSubmit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

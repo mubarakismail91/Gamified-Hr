@@ -20,3 +20,19 @@ export function clamp(value: number, min = 0, max = 100) {
 export function pick<T>(arr: readonly T[], seed: number): T {
   return arr[seed % arr.length];
 }
+
+export function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Saves an in-memory blob to disk via a temporary link — for files fetched through the authenticated API client. */
+export function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { useSession } from "@/context/SessionContext";
-import { canManageTeam, canViewBadges, canViewSkillTree } from "@/lib/permissions";
+import { canManageTeam, canViewBadges, canViewSkillTree, canTakeSurveys } from "@/lib/permissions";
 import type { Role } from "@/data";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
@@ -10,15 +10,20 @@ import Leaderboard from "@/pages/Leaderboard";
 import Quests from "@/pages/Quests";
 import Badges from "@/pages/Badges";
 import SkillTree from "@/pages/SkillTree";
+import Surveys from "@/pages/Surveys";
 import Kudos from "@/pages/Kudos";
 import Profile from "@/pages/Profile";
 import Notifications from "@/pages/Notifications";
 import AdminPanel from "@/pages/AdminPanel";
 import ManageTeam from "@/pages/ManageTeam";
 
-/** Gate: unauthenticated users are bounced to the landing / SSO screen. */
+/** Gate: unauthenticated users are bounced to the landing / login screen. */
 function RequireAuth() {
-  const { authed } = useSession();
+  const { authed, authLoading } = useSession();
+  // Wait for the initial silent-refresh check (see AuthContext) before
+  // deciding — otherwise a page reload would flash-redirect an already
+  // logged-in user to /login before their session cookie is even checked.
+  if (authLoading) return null;
   if (!authed) return <Navigate to="/" replace />;
   return (
     <AppShell>
@@ -55,6 +60,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission check={canViewSkillTree}>
             <SkillTree />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "/surveys",
+        element: (
+          <RequirePermission check={canTakeSurveys}>
+            <Surveys />
           </RequirePermission>
         ),
       },

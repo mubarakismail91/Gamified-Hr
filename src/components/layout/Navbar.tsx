@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, LogOut, Menu, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -17,7 +16,6 @@ import {
 import { BrandMark } from "@/components/common/BrandMark";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { LanguageToggle } from "./LanguageToggle";
-import { IdentitySwitcher } from "./IdentitySwitcher";
 import { NotificationBell } from "./NotificationBell";
 import { NavLinks } from "./NavLinks";
 import { useSession } from "@/context/SessionContext";
@@ -87,17 +85,7 @@ export function Navbar() {
           <BrandMark wordmark="smUp" />
         </Link>
 
-        <Badge variant="gold" className="ms-1 hidden lg:inline-flex">
-          {t("common.prototypeBadge")}
-        </Badge>
-
         <div className="ms-auto flex items-center gap-1 sm:gap-2">
-          <div className="hidden md:block">
-            <IdentitySwitcher />
-          </div>
-          <div className="md:hidden">
-            <IdentitySwitcher compact />
-          </div>
           <LanguageToggle compact />
           <NotificationBell />
 

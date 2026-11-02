@@ -18,12 +18,12 @@ import {
 import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { DateStamp } from "@/components/common/DateStamp";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { staffById, colleagues } from "@/store/selectors";
+import { useUsersQuery } from "@/queries/useUsers";
+import { useKudosQuery, useSendKudoMutation } from "@/queries/useKudos";
 import { useLocale } from "@/hooks/useLocale";
-import type { Kudo } from "@/data";
+import type { KudoEntry } from "@/api/kudoApi";
 
-const VALUES: Kudo["value"][] = [
+const VALUES: KudoEntry["value"][] = [
   "collaboration",
   "excellence",
   "initiative",
@@ -36,24 +36,33 @@ export default function Kudos() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const { user } = useSession();
-  const { state, sendKudos } = useDemoData();
-  const peers = useMemo(() => colleagues(state, user.id), [state, user.id]);
-  const feed = useMemo(() => [...state.kudos].sort((a, b) => b.at.getTime() - a.at.getTime()), [state.kudos]);
+  const usersQuery = useUsersQuery();
+  const kudosQuery = useKudosQuery();
+  const sendKudo = useSendKudoMutation();
+  const peers = useMemo(() => (usersQuery.data ?? []).filter((u) => u.id !== user.id), [usersQuery.data, user.id]);
+  const feed = kudosQuery.data ?? [];
 
   const [toId, setToId] = useState("");
-  const [value, setValue] = useState<Kudo["value"]>("collaboration");
+  const [value, setValue] = useState<KudoEntry["value"]>("collaboration");
   const [message, setMessage] = useState("");
 
   const canSend = toId && message.trim().length >= 8;
 
   const submit = () => {
     if (!canSend) return;
-    const recipient = staffById(state, toId)!;
-    sendKudos({ fromId: user.id, toId, value, message: { en: message.trim(), ar: message.trim() } });
-    toast.success(t("kudos.sentToast", { name: t2(recipient.name) }));
-    setToId("");
-    setMessage("");
-    setValue("collaboration");
+    const recipient = peers.find((p) => p.id === toId);
+    sendKudo.mutate(
+      { toUserId: toId, value, message: message.trim() },
+      {
+        onSuccess: () => {
+          toast.success(t("kudos.sentToast", { name: recipient ? t2(recipient.name) : "" }));
+          setToId("");
+          setMessage("");
+          setValue("collaboration");
+        },
+        onError: () => toast.error(t("kudos.sendTitle")),
+      },
+    );
   };
 
   return (
@@ -85,7 +94,7 @@ export default function Kudos() {
 
             <div className="space-y-1.5">
               <Label>{t("kudos.value")}</Label>
-              <Select value={value} onValueChange={(v) => setValue(v as Kudo["value"])}>
+              <Select value={value} onValueChange={(v) => setValue(v as KudoEntry["value"])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {VALUES.map((v) => (
@@ -109,7 +118,7 @@ export default function Kudos() {
               <p className="text-end text-[11px] text-muted-foreground">{message.length}/280</p>
             </div>
 
-            <Button onClick={submit} disabled={!canSend} className="w-full gap-2">
+            <Button onClick={submit} disabled={!canSend || sendKudo.isPending} className="w-full gap-2">
               <Send className="h-4 w-4" />
               {t("kudos.send")}
             </Button>
@@ -121,9 +130,8 @@ export default function Kudos() {
           <h2 className="text-sm font-semibold text-muted-foreground">{t("kudos.feed")}</h2>
           <div className="space-y-3">
             {feed.map((k) => {
-              const from = staffById(state, k.fromId);
-              const to = staffById(state, k.toId);
-              if (!from || !to) return null;
+              const from = k.fromStaff;
+              const to = k.toStaff;
               return (
                 <Card key={k.id}>
                   <CardContent className="flex gap-3 p-4">

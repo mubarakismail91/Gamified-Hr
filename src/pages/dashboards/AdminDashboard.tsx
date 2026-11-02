@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/button";
 import { DateStamp } from "@/components/common/DateStamp";
 import { ParticipationChart } from "@/components/admin/Charts";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { pendingApprovals } from "@/store/selectors";
+import { useUsersQuery } from "@/queries/useUsers";
+import { useDepartmentsQuery } from "@/queries/useDepartments";
+import { useQuestsQuery } from "@/queries/useQuests";
+import { usePendingApprovalsQuery } from "@/queries/useAssignments";
+import { useAuditQuery } from "@/queries/useAudit";
+import { useAnalyticsOverviewQuery } from "@/queries/useAnalytics";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 
@@ -17,28 +21,33 @@ export default function AdminDashboard() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const { user } = useSession();
-  const { state } = useDemoData();
 
-  const publishedQuests = state.quests.filter((q) => q.status === "published").length;
-  const approvals = pendingApprovals(state, null);
+  const usersQuery = useUsersQuery();
+  const departmentsQuery = useDepartmentsQuery();
+  const questsQuery = useQuestsQuery();
+  const approvalsQuery = usePendingApprovalsQuery(null);
+  const auditQuery = useAuditQuery(6);
+  const overviewQuery = useAnalyticsOverviewQuery();
+
+  const publishedQuests = (questsQuery.data ?? []).filter((q) => q.status === "published").length;
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("dashboard.welcome", { name: user.name[lang] })} subtitle={t("admin.subtitle")} />
 
       <div className="stat-grid">
-        <StatCard icon={Users2} label={t("admin.kpiTotalUsers")} value={formatNumber(state.users.length, lang)} />
+        <StatCard icon={Users2} label={t("admin.kpiTotalUsers")} value={formatNumber(usersQuery.data?.length ?? 0, lang)} />
         <StatCard
           icon={Building2}
           label={t("admin.kpiTotalDepartments")}
-          value={formatNumber(state.departments.length, lang)}
+          value={formatNumber(departmentsQuery.data?.length ?? 0, lang)}
           tone="muted"
         />
         <StatCard icon={Swords} label={t("admin.kpiPublishedQuests")} value={formatNumber(publishedQuests, lang)} />
         <StatCard
           icon={ClipboardCheck}
           label={t("manageTeam.pendingApprovals")}
-          value={formatNumber(approvals.length, lang)}
+          value={formatNumber(approvalsQuery.data?.length ?? 0, lang)}
           tone="gold"
         />
       </div>
@@ -49,7 +58,7 @@ export default function AdminDashboard() {
             <CardTitle>{t("admin.engagementOverTime")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ParticipationChart />
+            <ParticipationChart data={overviewQuery.data?.participationTrend ?? []} />
           </CardContent>
         </Card>
 
@@ -80,7 +89,7 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent className="p-0">
           <ul className="divide-y">
-            {state.audit.slice(0, 6).map((a) => (
+            {(auditQuery.data ?? []).map((a) => (
               <li key={a.id} className="flex items-start justify-between gap-3 px-5 py-2.5 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{t2(a.action)}</p>

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Users2,
   Bell,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/data";
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/quests", labelKey: "nav.quests", icon: Swords, section: "main", roles: ["employee"] },
   { to: "/badges", labelKey: "nav.badges", icon: Medal, section: "main", roles: ["employee"] },
   { to: "/skills", labelKey: "nav.skills", icon: Network, section: "main", roles: ["employee"] },
+  { to: "/surveys", labelKey: "nav.surveys", icon: ClipboardList, section: "main", roles: ["employee"] },
   { to: "/leaderboard", labelKey: "nav.leaderboard", icon: Trophy, section: "community" },
   { to: "/kudos", labelKey: "nav.kudos", icon: HeartHandshake, section: "community" },
   { to: "/profile", labelKey: "nav.profile", icon: UserRound, section: "community" },

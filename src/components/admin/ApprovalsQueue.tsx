@@ -24,12 +24,10 @@ import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { DateStamp } from "@/components/common/DateStamp";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SubmissionPreviewDialog } from "./SubmissionPreviewDialog";
-import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { usePendingApprovals } from "@/store/hooks";
+import { usePendingApprovalsQuery, useApproveAssignmentMutation, useRejectAssignmentMutation } from "@/queries/useAssignments";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
-import type { PendingApproval } from "@/store/selectors";
+import type { PendingApproval } from "@/api/assignmentApi";
 import type { QuestSubmission } from "@/data";
 
 export function ApprovalsQueue({
@@ -42,9 +40,10 @@ export function ApprovalsQueue({
 }) {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
-  const { user } = useSession();
-  const { approveQuest, rejectQuest } = useDemoData();
-  const rows = usePendingApprovals(departmentId);
+  const pendingQuery = usePendingApprovalsQuery(departmentId);
+  const approveMutation = useApproveAssignmentMutation();
+  const rejectMutation = useRejectAssignmentMutation();
+  const rows = pendingQuery.data ?? [];
   const shown = limit ? rows.slice(0, limit) : rows;
 
   const [rejecting, setRejecting] = useState<PendingApproval | null>(null);
@@ -52,16 +51,26 @@ export function ApprovalsQueue({
   const [previewing, setPreviewing] = useState<QuestSubmission | null>(null);
 
   const approve = (row: PendingApproval) => {
-    approveQuest(row.quest.id, row.user.id, user.id);
-    toast.success(t("approvals.toastApproved"), { description: t2(row.quest.title) });
+    if (!row.progress.id) return;
+    approveMutation.mutate(row.progress.id, {
+      onSuccess: () => toast.success(t("approvals.toastApproved"), { description: t2(row.quest.title) }),
+      onError: () => toast.error(t("approvals.toastApproved")),
+    });
   };
 
   const confirmReject = () => {
-    if (!rejecting) return;
-    rejectQuest(rejecting.quest.id, rejecting.user.id, user.id, note.trim() || undefined);
-    toast.success(t("approvals.toastRejected"), { description: t2(rejecting.quest.title) });
-    setRejecting(null);
-    setNote("");
+    if (!rejecting?.progress.id) return;
+    rejectMutation.mutate(
+      { id: rejecting.progress.id, note: note.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast.success(t("approvals.toastRejected"), { description: t2(rejecting.quest.title) });
+          setRejecting(null);
+          setNote("");
+        },
+        onError: () => toast.error(t("approvals.toastRejected")),
+      },
+    );
   };
 
   if (shown.length === 0) {
@@ -122,11 +131,22 @@ export function ApprovalsQueue({
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1.5">
-                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setRejecting(row)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setRejecting(row)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                    >
                       <X className="h-3.5 w-3.5" />
                       {t("approvals.reject")}
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={() => approve(row)}>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => approve(row)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                    >
                       <Check className="h-3.5 w-3.5" />
                       {t("approvals.approve")}
                     </Button>
@@ -153,7 +173,7 @@ export function ApprovalsQueue({
             <Button variant="outline" onClick={() => setRejecting(null)}>
               {t("common.cancel")}
             </Button>
-            <Button variant="destructive" onClick={confirmReject}>
+            <Button variant="destructive" onClick={confirmReject} disabled={rejectMutation.isPending}>
               {t("approvals.reject")}
             </Button>
           </DialogFooter>

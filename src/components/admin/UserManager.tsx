@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Award, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react";
+import { isAxiosError } from "axios";
+import { Award, Copy, KeyRound, Pencil, Plus, Trash2, Users } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -28,12 +29,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { EmptyState } from "@/components/common/EmptyState";
+import { BadgeIcon } from "@/components/common/BadgeIcon";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
+import {
+  useUsersQuery,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+  useDeactivateUserMutation,
+  useAwardXpMutation,
+  useResetPasswordMutation,
+} from "@/queries/useUsers";
+import { useDepartmentsQuery } from "@/queries/useDepartments";
+import { useBadgesQuery, useAwardBadgeMutation } from "@/queries/useBadges";
 import { useLocale } from "@/hooks/useLocale";
 import type { Role, StaffMember } from "@/data";
+
+type AwardType = "xp" | "badge";
 
 type UserDraft = {
   id?: string;
@@ -50,25 +64,77 @@ function emptyDraft(firstDeptId: string): UserDraft {
   return { nameEn: "", email: "", titleEn: "", departmentId: firstDeptId, role: "employee", startingXp: 0 };
 }
 
-type AwardDraft = { userId: string; kind: "xp" | "badge"; amount: number; badgeId: string; reason: string };
-
 const ALL_DEPARTMENTS = "__all__";
 const UNIVERSITY_WIDE = "__university_wide__";
+
+function errorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err) && typeof err.response?.data?.message === "string") return err.response.data.message;
+  return fallback;
+}
 
 export function UserManager() {
   const { t } = useTranslation();
   const { t2 } = useLocale();
   const { user: actingUser } = useSession();
-  const { state, addUser, updateUser, deleteUser, awardXp, awardBadge } = useDemoData();
+
+  const [deptFilter, setDeptFilter] = useState<string>(ALL_DEPARTMENTS);
+  const departmentsQuery = useDepartmentsQuery();
+  const usersQuery = useUsersQuery(deptFilter === ALL_DEPARTMENTS ? undefined : deptFilter);
+  const badgesQuery = useBadgesQuery();
+  const createUser = useCreateUserMutation();
+  const updateUser = useUpdateUserMutation();
+  const deactivateUser = useDeactivateUserMutation();
+  const awardXp = useAwardXpMutation();
+  const awardBadge = useAwardBadgeMutation();
+  const resetPassword = useResetPasswordMutation();
+
+  const departments = departmentsQuery.data ?? [];
+  const visibleUsers = usersQuery.data ?? [];
+  // Everything else is earned automatically — the backend rejects manual grants of those.
+  const badgeCatalog = (badgesQuery.data ?? []).filter((b) => b.manual);
 
   const [editing, setEditing] = useState<UserDraft | null>(null);
   const [deleting, setDeleting] = useState<StaffMember | null>(null);
-  const [awarding, setAwarding] = useState<AwardDraft | null>(null);
-  const [deptFilter, setDeptFilter] = useState<string>(ALL_DEPARTMENTS);
+  const [resettingPw, setResettingPw] = useState<StaffMember | null>(null);
+  const [createdCreds, setCreatedCreds] = useState<{
+    email: string;
+    password: string;
+    name: string;
+    mode: "created" | "reset";
+  } | null>(null);
 
-  const firstDeptId = state.departments[0]?.id ?? "";
-  const visibleUsers =
-    deptFilter === ALL_DEPARTMENTS ? state.users : state.users.filter((u) => u.departmentId === deptFilter);
+  const [awarding, setAwarding] = useState<StaffMember | null>(null);
+  const [awardType, setAwardType] = useState<AwardType>("xp");
+  const [awardAmount, setAwardAmount] = useState(10);
+  const [awardReason, setAwardReason] = useState("");
+  const [awardBadgeId, setAwardBadgeId] = useState("");
+
+  const openAward = (u: StaffMember) => {
+    setAwarding(u);
+    setAwardType("xp");
+    setAwardAmount(10);
+    setAwardReason("");
+    setAwardBadgeId(badgeCatalog[0]?.id ?? "");
+  };
+
+  const submitAward = async () => {
+    if (!awarding) return;
+    try {
+      if (awardType === "xp") {
+        await awardXp.mutateAsync({ id: awarding.id, amount: awardAmount, reason: awardReason.trim() || undefined });
+        toast.success(t("admin.awardToastXp", { n: awardAmount }));
+      } else {
+        if (!awardBadgeId) return;
+        await awardBadge.mutateAsync({ userId: awarding.id, badgeId: awardBadgeId });
+        toast.success(t("admin.awardToastBadge"));
+      }
+      setAwarding(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.awardTitle")));
+    }
+  };
+
+  const firstDeptId = departments[0]?.id ?? "";
 
   const openNew = () => setEditing(emptyDraft(firstDeptId));
   const openEdit = (u: StaffMember) =>
@@ -82,53 +148,77 @@ export function UserManager() {
       startingXp: u.totalXp,
     });
 
-  const save = () => {
+  const save = async () => {
     if (!editing || !editing.nameEn.trim() || !editing.email.trim()) return;
-    if (editing.id) {
-      updateUser(editing.id, {
-        name: { en: editing.nameEn, ar: editing.nameEn },
-        email: editing.email,
-        title: { en: editing.titleEn, ar: editing.titleEn },
-        departmentId: editing.departmentId,
-        role: editing.role,
-      });
-    } else {
-      addUser({
-        nameEn: editing.nameEn,
-        email: editing.email,
-        titleEn: editing.titleEn,
-        departmentId: editing.departmentId,
-        role: editing.role,
-        startingXp: editing.startingXp,
-      });
+    try {
+      if (editing.id) {
+        await updateUser.mutateAsync({
+          id: editing.id,
+          patch: {
+            nameEn: editing.nameEn,
+            email: editing.email,
+            titleEn: editing.titleEn,
+            departmentId: editing.departmentId,
+            role: editing.role,
+          },
+        });
+        toast.success(t("common.saveChanges"));
+      } else {
+        const result = await createUser.mutateAsync({
+          nameEn: editing.nameEn,
+          email: editing.email,
+          titleEn: editing.titleEn,
+          departmentId: editing.departmentId,
+          role: editing.role,
+          startingXp: editing.startingXp,
+        });
+        setCreatedCreds({
+          email: result.user.email,
+          password: result.temporaryPassword,
+          name: editing.nameEn,
+          mode: "created",
+        });
+      }
+      setEditing(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.newUser")));
     }
-    toast.success(editing.id ? t("common.saveChanges") : t("admin.newUser"));
-    setEditing(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDeactivate = async () => {
     if (!deleting) return;
-    deleteUser(deleting.id);
-    toast.success(t("admin.deleteUser"), { description: t2(deleting.name) });
-    setDeleting(null);
+    try {
+      await deactivateUser.mutateAsync(deleting.id);
+      toast.success(t("admin.deactivateToast"), { description: t2(deleting.name) });
+      setDeleting(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.deactivateUserTitle")));
+    }
   };
 
-  const openAward = (u: StaffMember) =>
-    setAwarding({ userId: u.id, kind: "xp", amount: 25, badgeId: state.badges[0]?.id ?? "", reason: "" });
-
-  const submitAward = () => {
-    if (!awarding) return;
-    const target = state.users.find((u) => u.id === awarding.userId);
-    if (!target) return;
-    if (awarding.kind === "xp") {
-      awardXp(awarding.userId, awarding.amount, awarding.reason, actingUser.id);
-      toast.success(t("admin.awardToastXp", { n: awarding.amount }), { description: t2(target.name) });
-    } else {
-      const badge = state.badges.find((b) => b.id === awarding.badgeId);
-      awardBadge(awarding.userId, awarding.badgeId, actingUser.id);
-      toast.success(t("admin.awardToastBadge"), { description: badge ? t2(badge.name) : undefined });
+  const confirmResetPassword = async () => {
+    if (!resettingPw) return;
+    try {
+      const result = await resetPassword.mutateAsync(resettingPw.id);
+      toast.success(t("admin.resetPasswordToast", { name: t2(resettingPw.name) }));
+      setCreatedCreds({
+        email: result.user.email,
+        password: result.temporaryPassword,
+        name: t2(resettingPw.name),
+        mode: "reset",
+      });
+      setResettingPw(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.resetPasswordAction")));
     }
-    setAwarding(null);
+  };
+
+  const copyPassword = () => {
+    if (!createdCreds) return;
+    navigator.clipboard
+      .writeText(createdCreds.password)
+      .then(() => toast.success(t("admin.tempPasswordCopied")))
+      .catch(() => toast.error(t("admin.copyFailed")));
   };
 
   return (
@@ -140,7 +230,7 @@ export function UserManager() {
             <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_DEPARTMENTS}>{t("admin.filterAllDepartments")}</SelectItem>
-              {state.departments.map((d) => (
+              {departments.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
                   {t2(d.name)}
                 </SelectItem>
@@ -154,7 +244,9 @@ export function UserManager() {
         </Button>
       </div>
 
-      {visibleUsers.length === 0 ? (
+      {usersQuery.isLoading ? (
+        <EmptyState icon={Users} title={t("common.loading")} />
+      ) : visibleUsers.length === 0 ? (
         <EmptyState icon={Users} title={t("admin.noUsers")} />
       ) : (
       <div className="rounded-lg border">
@@ -187,7 +279,12 @@ export function UserManager() {
                 <TableCell className="text-sm text-muted-foreground">{t2(u.department)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openAward(u)} aria-label={t("admin.awardTitle")}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openAward(u)}
+                      aria-label={t("admin.awardTitle")}
+                    >
                       <Award className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(u)} aria-label={t("common.edit")}>
@@ -196,8 +293,16 @@ export function UserManager() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => setResettingPw(u)}
+                      aria-label={t("admin.resetPasswordAction")}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setDeleting(u)}
-                      aria-label={t("common.delete")}
+                      aria-label={t("admin.deactivateAction")}
                       disabled={u.id === actingUser.id}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -251,7 +356,7 @@ export function UserManager() {
                       {editing.role === "admin" && (
                         <SelectItem value={UNIVERSITY_WIDE}>{t("admin.universityWideOption")}</SelectItem>
                       )}
-                      {state.departments.map((d) => (
+                      {departments.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {t2(d.name)}
                         </SelectItem>
@@ -299,45 +404,105 @@ export function UserManager() {
             <Button variant="outline" onClick={() => setEditing(null)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={save}>{t("common.save")}</Button>
+            <Button onClick={save} disabled={createUser.isPending || updateUser.isPending}>
+              {t("common.save")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
+      {/* Deactivate confirm */}
       <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("admin.deleteUser")}</DialogTitle>
+            <DialogTitle>{t("admin.deactivateUserTitle")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            {deleting && t("admin.deleteUserConfirm", { name: t2(deleting.name) })}
+            {deleting && t("admin.deactivateUserConfirm", { name: t2(deleting.name) })}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleting(null)}>
               {t("common.cancel")}
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              {t("common.delete")}
+            <Button variant="destructive" onClick={confirmDeactivate} disabled={deactivateUser.isPending}>
+              {t("admin.deactivateAction")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Award XP / badge */}
-      <Dialog open={!!awarding} onOpenChange={(o) => !o && setAwarding(null)}>
+      {/* Reset password confirm */}
+      <Dialog open={!!resettingPw} onOpenChange={(o) => !o && setResettingPw(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[hsl(var(--gold))]" />
-              {t("admin.awardTitle")}
+            <DialogTitle>{t("admin.resetPasswordConfirmTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {resettingPw && t("admin.resetPasswordConfirmBody", { name: t2(resettingPw.name) })}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResettingPw(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={confirmResetPassword} disabled={resetPassword.isPending}>
+              {t("admin.resetPasswordAction")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* One-time temporary password display — shown after both account creation and a password reset */}
+      <Dialog open={!!createdCreds} onOpenChange={(o) => !o && setCreatedCreds(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {createdCreds?.mode === "reset" ? t("admin.resetPasswordResultTitle") : t("admin.tempPasswordTitle")}
             </DialogTitle>
+          </DialogHeader>
+          {createdCreds && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {createdCreds.mode === "reset"
+                  ? t("admin.resetPasswordResultBody", { name: createdCreds.name })
+                  : t("admin.tempPasswordBody", { name: createdCreds.name })}
+              </p>
+              <div className="space-y-1.5">
+                <Label>{t("profile.contact")}</Label>
+                <Input readOnly value={createdCreds.email} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("landing.passwordLabel")}</Label>
+                <div className="flex gap-2">
+                  <Input readOnly value={createdCreds.password} className="font-mono" />
+                  <Button type="button" variant="outline" size="icon" onClick={copyPassword} aria-label={t("admin.copyPassword")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setCreatedCreds(null)}>{t("common.close")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Award XP or a badge */}
+      <Dialog open={!!awarding} onOpenChange={(o) => !o && setAwarding(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("admin.awardTitle")}</DialogTitle>
           </DialogHeader>
           {awarding && (
             <div className="space-y-4">
+              <div className="flex items-center gap-2.5 rounded-md bg-secondary/60 p-2.5">
+                <PersonAvatar person={awarding} size="sm" />
+                <p className="truncate text-sm font-medium">{t2(awarding.name)}</p>
+              </div>
+
               <div className="space-y-1.5">
                 <Label>{t("admin.awardTypeLabel")}</Label>
-                <Select value={awarding.kind} onValueChange={(v) => setAwarding({ ...awarding, kind: v as "xp" | "badge" })}>
+                <Select value={awardType} onValueChange={(v) => setAwardType(v as AwardType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="xp">{t("admin.awardTypeXp")}</SelectItem>
@@ -346,35 +511,39 @@ export function UserManager() {
                 </Select>
               </div>
 
-              {awarding.kind === "xp" ? (
+              {awardType === "xp" ? (
                 <>
                   <div className="space-y-1.5">
-                    <Label>{t("common.xp")}</Label>
+                    <Label>{t("admin.awardTypeXp")}</Label>
                     <Input
                       type="number"
-                      step={5}
-                      value={awarding.amount}
-                      onChange={(e) => setAwarding({ ...awarding, amount: Number(e.target.value) || 0 })}
+                      step={10}
+                      value={awardAmount}
+                      onChange={(e) => setAwardAmount(Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("admin.awardReasonLabel")}</Label>
-                    <Input
-                      value={awarding.reason}
-                      onChange={(e) => setAwarding({ ...awarding, reason: e.target.value })}
+                    <Textarea
+                      value={awardReason}
+                      onChange={(e) => setAwardReason(e.target.value)}
                       placeholder={t("admin.awardReasonPlaceholder")}
+                      rows={3}
                     />
                   </div>
                 </>
               ) : (
                 <div className="space-y-1.5">
-                  <Label>{t("nav.badges")}</Label>
-                  <Select value={awarding.badgeId} onValueChange={(v) => setAwarding({ ...awarding, badgeId: v })}>
+                  <Label>{t("admin.awardTypeBadge")}</Label>
+                  <Select value={awardBadgeId} onValueChange={setAwardBadgeId}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {state.badges.map((b) => (
+                      {badgeCatalog.map((b) => (
                         <SelectItem key={b.id} value={b.id}>
-                          {t2(b.name)}
+                          <span className="flex items-center gap-2">
+                            <BadgeIcon name={b.icon} className="h-3.5 w-3.5" />
+                            {t2(b.name)}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -387,7 +556,14 @@ export function UserManager() {
             <Button variant="outline" onClick={() => setAwarding(null)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={submitAward}>{t("admin.awardSubmit")}</Button>
+            <Button
+              onClick={submitAward}
+              disabled={
+                awardXp.isPending || awardBadge.isPending || (awardType === "badge" && !awardBadgeId)
+              }
+            >
+              {t("admin.awardSubmit")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

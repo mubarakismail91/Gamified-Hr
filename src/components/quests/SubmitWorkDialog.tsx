@@ -14,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
+import { useSubmitQuestWorkMutation } from "@/queries/useSubmissions";
 import { useLocale } from "@/hooks/useLocale";
 import type { QuestView } from "@/store/selectors";
 
@@ -42,17 +41,14 @@ export function SubmitWorkDialog({
 }) {
   const { t } = useTranslation();
   const { t2 } = useLocale();
-  const { user } = useSession();
-  const { submitQuestWork } = useDemoData();
+  const submitMutation = useSubmitQuestWorkMutation();
 
   const [file, setFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
     setFile(null);
     setNotes("");
-    setSubmitting(false);
   };
 
   const handleClose = (open: boolean) => {
@@ -82,17 +78,18 @@ export function SubmitWorkDialog({
     setFile(picked);
   };
 
-  const submit = async () => {
-    if (!view) return;
-    setSubmitting(true);
-    try {
-      await submitQuestWork(view.quest.id, user.id, file, notes.trim());
-      toast.success(t("quests.submitToast"), { description: t2(view.quest.title) });
-      handleClose(false);
-    } catch {
-      toast.error(t("quests.submitError"));
-      setSubmitting(false);
-    }
+  const submit = () => {
+    if (!view?.progress.id) return;
+    submitMutation.mutate(
+      { assignmentId: view.progress.id, file, notes: notes.trim() },
+      {
+        onSuccess: () => {
+          toast.success(t("quests.submitToast"), { description: t2(view.quest.title) });
+          handleClose(false);
+        },
+        onError: () => toast.error(t("quests.submitError")),
+      },
+    );
   };
 
   return (
@@ -136,8 +133,8 @@ export function SubmitWorkDialog({
           <Button variant="outline" onClick={() => handleClose(false)}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={submit} disabled={submitting}>
-            {submitting ? t("common.loading") : t("quests.submitForReview")}
+          <Button onClick={submit} disabled={submitMutation.isPending}>
+            {submitMutation.isPending ? t("common.loading") : t("quests.submitForReview")}
           </Button>
         </DialogFooter>
       </DialogContent>

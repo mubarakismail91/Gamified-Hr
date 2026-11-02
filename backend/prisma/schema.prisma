@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Connection URL lives in prisma.config.ts (Prisma 7 moved it out of the
+// schema file) for the CLI, and in PrismaService's adapter for the app.
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  employee
+  manager
+  admin
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum QuestCadence {
+  daily
+  epic
+}
+
+enum QuestDifficulty {
+  easy
+  medium
+  hard
+}
+
+enum QuestStatus {
+  draft
+  published
+}
+
+enum AssignmentStatus {
+  accepted
+  pending_approval
+  completed
+}
+
+enum SubmissionStatus {
+  pending
+  approved
+  denied
+}
+
+enum NotificationKind {
+  xp
+  badge
+  social
+  quest
+  system
+}
+
+enum ActivityKind {
+  xp
+  badge
+  quest
+  kudo
+  level
+}
+
+enum KudoValue {
+  collaboration
+  excellence
+  initiative
+  mentorship
+  service
+  integrity
+}
+
+enum SkillBranch {
+  teaching
+  research
+  leadership
+  digital
+}
+
+enum SkillState {
+  unlocked
+  in_progress
+  locked
+}
+
+enum SdtScale {
+  autonomy
+  competence
+  relatedness
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  nameEn    String
+  nameAr    String
+  managerId String?  @unique
+  manager   User?    @relation("DepartmentManager", fields: [managerId], references: [id])
+  members   User[]   @relation("DepartmentMembers")
+  quests    Quest[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  staffId            String    @unique // e.g. "IU-31002", server-generated
+  nameEn             String
+  nameAr             String
+  initials           String    // server-generated from name, same as the demo
+  titleEn            String
+  titleAr            String
+  email              String    @unique
+  passwordHash       String
+  role               Role
+  gender             Gender
+  departmentId       String?   // null = university-wide (Admin only)
+  department         Department? @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  managesDepartment  Department? @relation("DepartmentManager")
+  officeEn           String    @default("")
+  officeAr           String    @default("")
+  collegeEn          String    @default("")
+  collegeAr          String    @default("")
+  avatarTone         String    // Tailwind class string, server-assigned round robin
+  totalXp            Int       @default(0)
+  currentStreakDays  Int       @default(0)
+  lastActivityDate   DateTime?
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  featuredBadgeIds   String[]  @default([]) // badges the Employee chose to show on the leaderboard, in display order (max 4)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  createdQuests       Quest[]           @relation("QuestCreator")
+  assignments         QuestAssignment[] @relation("Assignee")
+  reviewedAssignments QuestAssignment[] @relation("Reviewer")
+  submissions         QuestSubmission[]
+  badges              UserBadge[]
+  kudosSent           Kudo[]            @relation("KudosFrom")
+  kudosReceived       Kudo[]            @relation("KudosTo")
+  notifications       Notification[]
+  activity            ActivityLog[]
+  auditEntries        AuditLog[]
+  refreshTokens       RefreshToken[]
+  surveyParticipation SurveyParticipation[]
+}
+
+model Quest {
+  id            String          @id @default(cuid())
+  titleEn       String
+  titleAr       String
+  descriptionEn String          @default("")
+  descriptionAr String          @default("")
+  instructionsEn String         @default("") // long-form "how to do this" guidance, shown in the detail dialog
+  instructionsAr String         @default("")
+  estimatedMinutes Int?
+  categoryEn    String
+  categoryAr    String
+  cadence       QuestCadence
+  difficulty    QuestDifficulty @default(medium)
+  xp            Int
+  steps         Int             @default(1)
+  dueAt         DateTime?
+  requireFile   Boolean         @default(false) // soft recommendation only, never enforced
+  status        QuestStatus     @default(published)
+  departmentId  String?         // null = university-wide (Admin-created)
+  department    Department?     @relation(fields: [departmentId], references: [id])
+  assigneeId    String?         // optional: single-employee targeting instead of whole department
+  createdById   String
+  createdBy     User            @relation("QuestCreator", fields: [createdById], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  assignments   QuestAssignment[]
+  subtasks      QuestSubtask[]
+  attachments   QuestAttachment[]
+}
+
+/// One checklist item under a quest. `Quest.steps` is kept equal to the number of subtasks (min 1).
+model QuestSubtask {
+  id            String   @id @default(cuid())
+  questId       String
+  quest         Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+  titleEn       String
+  titleAr       String
+  descriptionEn String   @default("")
+  descriptionAr String   @default("")
+  position      Int
+
+  completions   AssignmentSubtask[]
+}
+
+/// Which subtasks one employee has ticked off on their assignment.
+model AssignmentSubtask {
+  id           String          @id @default(cuid())
+  assignmentId String
+  assignment   QuestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  subtaskId    String
+  subtask      QuestSubtask    @relation(fields: [subtaskId], references: [id], onDelete: Cascade)
+  completedAt  DateTime        @default(now())
+
+  @@unique([assignmentId, subtaskId])
+}
+
+/// Explanatory file (brief, template, guide...) the quest creator attaches for employees.
+model QuestAttachment {
+  id         String   @id @default(cuid())
+  questId    String
+  quest      Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+  fileName   String
+  filePath   String
+  fileType   String?
+  fileSize   Int
+  uploadedAt DateTime @default(now())
+}
+
+model QuestAssignment {
+  id            String           @id @default(cuid())
+  questId       String
+  quest         Quest            @relation(fields: [questId], references: [id])
+  employeeId    String
+  employee      User             @relation("Assignee", fields: [employeeId], references: [id])
+  status        AssignmentStatus @default(accepted)
+  stepsDone     Int              @default(0)
+  acceptedAt    DateTime         @default(now())
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  reviewedById  String?
+  reviewedBy    User?            @relation("Reviewer", fields: [reviewedById], references: [id])
+  rejectionNote String?
+
+  submissions   QuestSubmission[]
+  subtaskProgress AssignmentSubtask[]
+
+  @@unique([questId, employeeId])
+}
+
+model QuestSubmission {
+  id           String            @id @default(cuid())
+  assignmentId String
+  assignment   QuestAssignment   @relation(fields: [assignmentId], references: [id])
+  employeeId   String
+  employee     User              @relation(fields: [employeeId], references: [id])
+  fileName     String?
+  filePath     String?
+  fileType     String?
+  fileSize     Int?
+  notes        String?
+  status       SubmissionStatus  @default(pending)
+  submittedAt  DateTime          @default(now())
+  reviewedAt   DateTime?
+  feedback     String?
+}
+
+model Badge {
+  id            String      @id @default(cuid())
+  nameEn        String
+  nameAr        String
+  descriptionEn String
+  descriptionAr String
+  howToEn       String
+  howToAr       String
+  groupEn       String
+  groupAr       String
+  icon          String
+  tier          String      // "bronze" | "silver" | "gold"
+  criteria      Json?       // reserved for future auto-award rules; unused in Phase E
+
+  awardedTo     UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  badgeId     String
+  badge       Badge    @relation(fields: [badgeId], references: [id])
+  awardedAt   DateTime @default(now())
+  awardedById String?
+
+  @@unique([userId, badgeId])
+}
+
+model Kudo {
+  id         String    @id @default(cuid())
+  fromUserId String
+  fromUser   User      @relation("KudosFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User      @relation("KudosTo", fields: [toUserId], references: [id])
+  value      KudoValue
+  messageEn  String
+  messageAr  String
+  createdAt  DateTime  @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  kind      NotificationKind
+  titleEn   String
+  titleAr   String
+  bodyEn    String
+  bodyAr    String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model ActivityLog {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  kind      ActivityKind
+  textEn    String
+  textAr    String
+  xpDelta   Int          @default(0)
+  refType   String?
+  refId     String?
+  createdAt DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique // hashed, not the raw cookie value
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+}
+
+/**
+ * Quarterly SDT pulse survey (Phase F). `status` isn't stored — it's derived
+ * from opensAt/closesAt vs. now() in the service, so it can never drift out
+ * of sync with the dates. `targetCount` is a snapshot of eligible Employees
+ * taken when the round is created, not recomputed later.
+ */
+model SurveyRound {
+  id            String                 @id @default(cuid())
+  titleEn       String
+  titleAr       String
+  quarter       String
+  opensAt       DateTime
+  closesAt      DateTime?
+  targetCount   Int
+  createdAt     DateTime               @default(now())
+
+  questions     SurveyQuestion[]
+  responses     SurveyResponse[]
+  participation SurveyParticipation[]
+}
+
+model SurveyQuestion {
+  id      String      @id @default(cuid())
+  roundId String
+  round   SurveyRound @relation(fields: [roundId], references: [id])
+  scale   SdtScale
+  textEn  String
+  textAr  String
+  order   Int
+}
+
+/**
+ * Deliberately has no userId — anonymity by construction, not by policy.
+ * `answers` is { [questionId]: 1-7 }. Who *completed* the round (for
+ * reminders / the participation XP) is tracked separately in
+ * SurveyParticipation, which never touches this table.
+ */
+model SurveyResponse {
+  id          String      @id @default(cuid())
+  roundId     String
+  round       SurveyRound @relation(fields: [roundId], references: [id])
+  answers     Json
+  submittedAt DateTime    @default(now())
+}
+
+model SurveyParticipation {
+  id          String      @id @default(cuid())
+  roundId     String
+  round       SurveyRound @relation(fields: [roundId], references: [id])
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  completedAt DateTime    @default(now())
+
+  @@unique([roundId, userId])
+}
+
+// Read-only reference catalog (Phase F) — same illustrative state/level for
+// every viewer, matching the frontend's pre-existing behavior exactly. Not
+// yet per-user; see the Phase F decision log for why.
+model Skill {
+  id            String      @id @default(cuid())
+  nameEn        String
+  nameAr        String
+  branch        SkillBranch
+  descriptionEn String
+  descriptionAr String
+  state         SkillState
+  level         Int
+  maxLevel      Int
+  requires      String[] // ids of prerequisite Skills
+  col           Int
+  row           Int
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { isAxiosError } from "axios";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Table,
@@ -29,19 +30,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { useDemoData } from "@/store/DemoDataContext";
+import { useUsersQuery } from "@/queries/useUsers";
+import {
+  useDepartmentsQuery,
+  useCreateDepartmentMutation,
+  useUpdateDepartmentMutation,
+  useDeleteDepartmentMutation,
+} from "@/queries/useDepartments";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 import type { Department } from "@/data";
 
 const NO_MANAGER = "__none__";
 
+function errorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err) && typeof err.response?.data?.message === "string") return err.response.data.message;
+  return fallback;
+}
+
 type Draft = { id?: string; nameEn: string; managerId: string };
 
 export function DepartmentManager() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
-  const { state, addDepartment, updateDepartment, deleteDepartment } = useDemoData();
+
+  const departmentsQuery = useDepartmentsQuery();
+  const usersQuery = useUsersQuery();
+  const createDepartment = useCreateDepartmentMutation();
+  const updateDepartment = useUpdateDepartmentMutation();
+  const deleteDepartment = useDeleteDepartmentMutation();
+
+  const departments = departmentsQuery.data ?? [];
+  const users = usersQuery.data ?? [];
 
   const [editing, setEditing] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState<Department | null>(null);
@@ -49,29 +69,33 @@ export function DepartmentManager() {
   const openNew = () => setEditing({ nameEn: "", managerId: NO_MANAGER });
   const openEdit = (d: Department) => setEditing({ id: d.id, nameEn: d.name.en, managerId: d.managerId ?? NO_MANAGER });
 
-  // Any non-admin can be assigned as manager — promoting them is handled automatically.
-  const eligibleManagers = () => state.users.filter((u) => u.role !== "admin");
+  // Any non-admin can be assigned as manager — promoting them is handled automatically on the backend.
+  const eligibleManagers = () => users.filter((u) => u.role !== "admin");
 
-  const save = () => {
+  const save = async () => {
     if (!editing || !editing.nameEn.trim()) return;
     const managerId = editing.managerId === NO_MANAGER ? null : editing.managerId;
-    if (editing.id) {
-      updateDepartment(editing.id, { name: { en: editing.nameEn, ar: editing.nameEn }, managerId });
-    } else {
-      addDepartment({ nameEn: editing.nameEn, managerId });
+    try {
+      if (editing.id) {
+        await updateDepartment.mutateAsync({ id: editing.id, patch: { nameEn: editing.nameEn, managerId } });
+      } else {
+        await createDepartment.mutateAsync({ nameEn: editing.nameEn, managerId });
+      }
+      toast.success(editing.id ? t("common.saveChanges") : t("admin.newDepartment"));
+      setEditing(null);
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.newDepartment")));
     }
-    toast.success(editing.id ? t("common.saveChanges") : t("admin.newDepartment"));
-    setEditing(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleting) return;
-    const ok = deleteDepartment(deleting.id);
-    if (ok) {
+    try {
+      await deleteDepartment.mutateAsync(deleting.id);
       toast.success(t("admin.deleteDepartment"), { description: t2(deleting.name) });
       setDeleting(null);
-    } else {
-      toast.error(t("admin.deleteDeptBlocked"));
+    } catch (err) {
+      toast.error(errorMessage(err, t("admin.deleteDeptBlocked")));
     }
   };
 
@@ -84,7 +108,7 @@ export function DepartmentManager() {
         </Button>
       </div>
 
-      {state.departments.length === 0 ? (
+      {departments.length === 0 ? (
         <EmptyState icon={Building2} title={t("admin.noDepartments")} />
       ) : (
         <div className="rounded-lg border">
@@ -98,9 +122,9 @@ export function DepartmentManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {state.departments.map((d) => {
-                const manager = state.users.find((u) => u.id === d.managerId);
-                const count = state.users.filter((u) => u.departmentId === d.id).length;
+              {departments.map((d) => {
+                const manager = users.find((u) => u.id === d.managerId);
+                const count = users.filter((u) => u.departmentId === d.id).length;
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{t2(d.name)}</TableCell>
@@ -168,7 +192,9 @@ export function DepartmentManager() {
             <Button variant="outline" onClick={() => setEditing(null)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={save}>{t("common.save")}</Button>
+            <Button onClick={save} disabled={createDepartment.isPending || updateDepartment.isPending}>
+              {t("common.save")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -186,7 +212,7 @@ export function DepartmentManager() {
             <Button variant="outline" onClick={() => setDeleting(null)}>
               {t("common.cancel")}
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteDepartment.isPending}>
               {t("common.delete")}
             </Button>
           </DialogFooter>

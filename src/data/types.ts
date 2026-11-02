@@ -38,11 +38,15 @@ export interface StaffMember {
   streakDays: number;
   /** Ids of earned badges. */
   badgeIds: string[];
+  /** Real backend only — badges the Employee chose to show on the leaderboard, in display order. Empty = not chosen yet. */
+  featuredBadgeIds?: string[];
   /** Optional per-badge earned date override (falls back to `joined`). */
   badgeEarnedOn?: Record<string, Date>;
   /** Optional per-badge progress override for un-earned badges (0-100). */
   badgeProgress?: Record<string, number>;
   avatarTone: string;
+  /** Real backend only (absent for demo-seeded users) — prompts a forced password change on next login. */
+  mustChangePassword?: boolean;
 }
 
 export type QuestCadence = "daily" | "epic";
@@ -68,14 +72,38 @@ export interface Quest {
   createdBy: string;
   /** Soft recommendation only — the Employee can still submit without a file either way. */
   requireFile?: boolean;
+  /** Long-form "how to do this" guidance, beyond the short description. */
+  instructions?: Bi;
+  estimatedMinutes?: number;
+  /** Checklist items; when present, `steps` equals their count (backend keeps them in sync). */
+  subtasks?: QuestSubtask[];
+  /** Explanatory files the creator attached (briefs, templates, guides). */
+  attachments?: QuestAttachment[];
+}
+
+export interface QuestSubtask {
+  id: string;
+  title: Bi;
+  description: Bi;
+}
+
+export interface QuestAttachment {
+  id: string;
+  fileName: string;
+  fileType?: string;
+  fileSize: number;
 }
 
 /** One person's progress against a Quest. Absence of a row = "available" / not started. */
 export interface UserQuest {
+  /** Real backend only — absent for the synthetic "available" placeholder row (no assignment exists yet). */
+  id?: string;
   userId: string;
   questId: string;
   state: QuestState;
   stepsDone: number;
+  /** Ids of the quest's subtasks this person has ticked off (real backend only). */
+  completedSubtaskIds?: string[];
   acceptedAt?: Date;
   submittedAt?: Date;
   approvedAt?: Date;
@@ -115,6 +143,8 @@ export interface Badge {
   group: Bi;
   icon: string;
   tier: "bronze" | "silver" | "gold";
+  /** Real backend only — true = no automatic rule, an Administrator grants it. */
+  manual?: boolean;
 }
 
 export type SkillState = "unlocked" | "in-progress" | "locked";

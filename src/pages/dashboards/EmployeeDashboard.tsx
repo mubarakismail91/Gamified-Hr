@@ -9,9 +9,10 @@ import { RankHero } from "@/components/dashboard/RankHero";
 import { BadgeShowcase } from "@/components/dashboard/BadgeShowcase";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { useMyActivity, useMyBadges } from "@/store/hooks";
-import { activeQuestCount, departmentRank } from "@/store/selectors";
+import { useMyActivity } from "@/store/hooks";
+import { useMyBadges } from "@/queries/useBadges";
+import { useLeaderboardQuery } from "@/queries/useLeaderboard";
+import { useMyAssignmentsQuery } from "@/queries/useAssignments";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 
@@ -19,11 +20,17 @@ export default function EmployeeDashboard() {
   const { t } = useTranslation();
   const { lang, t2 } = useLocale();
   const { user } = useSession();
-  const { state } = useDemoData();
   const activity = useMyActivity();
   const badges = useMyBadges();
+  const assignmentsQuery = useMyAssignmentsQuery();
+  const leaderboardQuery = useLeaderboardQuery({ period: "week", metric: "points", scope: "dept" });
 
-  const dept = departmentRank(state, user.id);
+  const board = leaderboardQuery.data ?? [];
+  const mine = board.find((r) => r.staffId === user.id);
+  const dept = { position: mine?.position ?? board.length, total: board.length };
+  const activeQuests = (assignmentsQuery.data ?? []).filter(
+    (a) => a.state === "accepted" || a.state === "pending_approval",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -48,7 +55,7 @@ export default function EmployeeDashboard() {
         <StatCard
           icon={Swords}
           label={t("dashboard.questsActive")}
-          value={formatNumber(activeQuestCount(state, user.id), lang)}
+          value={formatNumber(activeQuests, lang)}
         />
         <StatCard
           icon={Flame}

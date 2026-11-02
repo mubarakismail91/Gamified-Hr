@@ -13,8 +13,8 @@ import { DateStamp } from "@/components/common/DateStamp";
 import { SubmitWorkDialog } from "@/components/quests/SubmitWorkDialog";
 import { QuestDetailDialog } from "@/components/quests/QuestDetailDialog";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { useMyQuests } from "@/store/hooks";
+import { useMyQuestViews } from "@/queries/useMyQuestViews";
+import { useAcceptQuestMutation, useAdvanceQuestMutation } from "@/queries/useAssignments";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import { DIFFICULTY_BADGE_VARIANT, DIFFICULTY_LABEL_KEY } from "@/lib/questDisplay";
@@ -23,13 +23,16 @@ import type { QuestView } from "@/store/selectors";
 export default function Quests() {
   const { t } = useTranslation();
   const { t2 } = useLocale();
-  const { user, role } = useSession();
-  const { acceptQuest, advanceQuestStep } = useDemoData();
-  const views = useMyQuests();
+  const { role } = useSession();
+  const { views } = useMyQuestViews();
+  const acceptMutation = useAcceptQuestMutation();
+  const advanceMutation = useAdvanceQuestMutation();
   const daily = views.filter((v) => v.quest.cadence === "daily");
   const epic = views.filter((v) => v.quest.cadence === "epic");
   const [submittingView, setSubmittingView] = useState<QuestView | null>(null);
-  const [detailView, setDetailView] = useState<QuestView | null>(null);
+  // Keep only the id so the dialog re-reads the live view (ticks update it without reopening).
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailView = views.find((v) => v.quest.id === detailId) ?? null;
 
   if (role !== "employee") {
     return (
@@ -52,12 +55,15 @@ export default function Quests() {
   }
 
   const accept = (v: QuestView) => {
-    acceptQuest(v.quest.id, user.id);
-    toast.success(t("quests.acceptToast"), { description: t2(v.quest.title) });
+    acceptMutation.mutate(v.quest.id, {
+      onSuccess: () => toast.success(t("quests.acceptToast"), { description: t2(v.quest.title) }),
+      onError: () => toast.error(t("quests.submitError")),
+    });
   };
 
   const logProgress = (v: QuestView) => {
-    advanceQuestStep(v.quest.id, user.id);
+    if (!v.progress.id) return;
+    advanceMutation.mutate(v.progress.id);
   };
 
   const allDailyDone = daily.length > 0 && daily.every((v) => v.progress.state === "completed");
@@ -82,7 +88,7 @@ export default function Quests() {
                 onAccept={() => accept(v)}
                 onLogProgress={() => logProgress(v)}
                 onSubmit={() => setSubmittingView(v)}
-                onViewDetail={() => setDetailView(v)}
+                onViewDetail={() => setDetailId(v.quest.id)}
               />
             ))}
           </div>
@@ -102,14 +108,14 @@ export default function Quests() {
               onAccept={() => accept(v)}
               onLogProgress={() => logProgress(v)}
               onSubmit={() => setSubmittingView(v)}
-              onViewDetail={() => setDetailView(v)}
+              onViewDetail={() => setDetailId(v.quest.id)}
             />
           ))}
         </div>
       </section>
 
       <SubmitWorkDialog view={submittingView} onOpenChange={(o) => !o && setSubmittingView(null)} />
-      <QuestDetailDialog view={detailView} onOpenChange={(o) => !o && setDetailView(null)} />
+      <QuestDetailDialog view={detailView} onOpenChange={(o) => !o && setDetailId(null)} />
     </div>
   );
 }
@@ -134,6 +140,8 @@ function QuestCard({
   const done = progress.state === "completed";
   const accepted = progress.state === "accepted";
   const pendingApproval = progress.state === "pending_approval";
+  const hasSubtasks = (quest.subtasks?.length ?? 0) > 0;
+  const hasMore = !!t2(quest.description) || !!quest.instructions?.en || hasSubtasks || (quest.attachments?.length ?? 0) > 0;
   const stepsRemain = accepted && progress.stepsDone < quest.steps;
   const readyToSubmit = accepted && progress.stepsDone >= quest.steps;
 
@@ -155,9 +163,11 @@ function QuestCard({
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col gap-3">
-        {t2(quest.description) && (
+        {hasMore && (
           <div className="space-y-0.5">
-            <p className="line-clamp-2 text-sm text-muted-foreground">{t2(quest.description)}</p>
+            {t2(quest.description) && (
+              <p className="line-clamp-2 text-sm text-muted-foreground">{t2(quest.description)}</p>
+            )}
             <button
               type="button"
               onClick={onViewDetail}
@@ -174,7 +184,7 @@ function QuestCard({
           </p>
         )}
 
-        {(accepted || done || pendingApproval) && quest.steps > 1 && (
+        {(accepted || done || pendingApproval) && (quest.steps > 1 || hasSubtasks) && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{t("quests.progress", { done: progress.stepsDone, total: quest.steps })}</span>
@@ -205,8 +215,8 @@ function QuestCard({
               {t("quests.pendingApproval")}
             </Badge>
           ) : stepsRemain ? (
-            <Button size="sm" variant="outline" onClick={onLogProgress}>
-              {t("quests.logProgress")}
+            <Button size="sm" variant="outline" onClick={hasSubtasks ? onViewDetail : onLogProgress}>
+              {hasSubtasks ? t("quests.reviewChecklist") : t("quests.logProgress")}
             </Button>
           ) : readyToSubmit ? (
             <Button size="sm" onClick={onSubmit}>

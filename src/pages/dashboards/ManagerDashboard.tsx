@@ -9,8 +9,11 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { ApprovalsQueue } from "@/components/admin/ApprovalsQueue";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { departmentTeam, managedDepartment, pendingApprovals, rankedLeaderboard } from "@/store/selectors";
+import { useDepartmentsQuery } from "@/queries/useDepartments";
+import { useUsersQuery } from "@/queries/useUsers";
+import { useQuestsQuery } from "@/queries/useQuests";
+import { usePendingApprovalsQuery } from "@/queries/useAssignments";
+import { useLeaderboardQuery } from "@/queries/useLeaderboard";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 
@@ -18,9 +21,14 @@ export default function ManagerDashboard() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const { user } = useSession();
-  const { state } = useDemoData();
 
-  const dept = managedDepartment(state, user.id);
+  const departmentsQuery = useDepartmentsQuery();
+  const dept = departmentsQuery.data?.[0];
+
+  const usersQuery = useUsersQuery(dept?.id);
+  const questsQuery = useQuestsQuery();
+  const approvalsQuery = usePendingApprovalsQuery(dept?.id ?? null);
+  const leaderboardQuery = useLeaderboardQuery({ period: "week", metric: "points", scope: "dept" });
 
   if (!dept) {
     return (
@@ -31,12 +39,10 @@ export default function ManagerDashboard() {
     );
   }
 
-  const team = departmentTeam(state, dept.id, { excludeManager: true });
-  const approvals = pendingApprovals(state, dept.id);
-  const deptQuests = state.quests.filter((q) => q.departmentId === dept.id).length;
-  const board = rankedLeaderboard(state, { period: "week", scope: "dept", metric: "points", viewerId: user.id }).filter(
-    (r) => r.staff.departmentId === dept.id,
-  );
+  const team = (usersQuery.data ?? []).filter((u) => u.id !== dept.managerId);
+  const approvals = approvalsQuery.data ?? [];
+  const deptQuests = questsQuery.data?.length ?? 0;
+  const board = leaderboardQuery.data ?? [];
 
   return (
     <div className="space-y-6">

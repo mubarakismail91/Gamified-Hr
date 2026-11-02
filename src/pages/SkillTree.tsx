@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { useLocale } from "@/hooks/useLocale";
 import { cn } from "@/lib/utils";
-import { SKILLS, skillById, type SkillNode } from "@/data";
+import { useSkillsQuery } from "@/queries/useSkills";
+import type { SkillNode } from "@/data";
 
 const BRANCHES: { key: SkillNode["branch"]; labelKey: string }[] = [
   { key: "teaching", labelKey: "skills.branchTeaching" },
@@ -32,6 +33,9 @@ export default function SkillTree() {
   const { t } = useTranslation();
   const { t2 } = useLocale();
   const [active, setActive] = useState<SkillNode | null>(null);
+  const skillsQuery = useSkillsQuery();
+  const SKILLS = skillsQuery.data ?? [];
+  const skillById = (id: string) => SKILLS.find((s) => s.id === id);
   const rows = [0, 1, 2];
 
   return (

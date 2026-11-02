@@ -21,8 +21,11 @@ import { QuestManager } from "@/components/admin/QuestManager";
 import { ApprovalsQueue } from "@/components/admin/ApprovalsQueue";
 import { SubmissionHistory } from "@/components/admin/SubmissionHistory";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { departmentTeam, managedDepartment, pendingApprovals, rankedLeaderboard } from "@/store/selectors";
+import { useDepartmentsQuery } from "@/queries/useDepartments";
+import { useUsersQuery } from "@/queries/useUsers";
+import { useQuestsQuery } from "@/queries/useQuests";
+import { usePendingApprovalsQuery } from "@/queries/useAssignments";
+import { useLeaderboardQuery } from "@/queries/useLeaderboard";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 import { levelFromXp } from "@/lib/xp";
@@ -30,8 +33,17 @@ import { levelFromXp } from "@/lib/xp";
 export default function ManageTeam() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
-  const { user, role } = useSession();
-  const { state } = useDemoData();
+  const { role } = useSession();
+
+  const departmentsQuery = useDepartmentsQuery();
+  // The backend already scopes a Manager's own /departments GET to just the
+  // one they manage — no client-side "find mine" needed.
+  const dept = departmentsQuery.data?.[0];
+
+  const usersQuery = useUsersQuery(dept?.id);
+  const questsQuery = useQuestsQuery();
+  const approvalsQuery = usePendingApprovalsQuery(dept?.id ?? null);
+  const leaderboardQuery = useLeaderboardQuery({ period: "week", metric: "points", scope: "dept" });
 
   if (role !== "manager") {
     return (
@@ -47,8 +59,6 @@ export default function ManageTeam() {
     );
   }
 
-  const dept = managedDepartment(state, user.id);
-
   if (!dept) {
     return (
       <div className="space-y-6">
@@ -58,12 +68,10 @@ export default function ManageTeam() {
     );
   }
 
-  const team = departmentTeam(state, dept.id, { excludeManager: true });
-  const approvals = pendingApprovals(state, dept.id);
-  const deptQuests = state.quests.filter((q) => q.departmentId === dept.id);
-  const board = rankedLeaderboard(state, { period: "week", scope: "dept", metric: "points", viewerId: user.id }).filter(
-    (r) => r.staff.departmentId === dept.id,
-  );
+  const team = (usersQuery.data ?? []).filter((u) => u.id !== dept.managerId);
+  const approvals = approvalsQuery.data ?? [];
+  const deptQuestCount = questsQuery.data?.length ?? 0;
+  const board = leaderboardQuery.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -77,7 +85,7 @@ export default function ManageTeam() {
           value={formatNumber(approvals.length, lang)}
           tone="gold"
         />
-        <StatCard icon={Swords} label={t("manageTeam.deptQuests")} value={formatNumber(deptQuests.length, lang)} />
+        <StatCard icon={Swords} label={t("manageTeam.deptQuests")} value={formatNumber(deptQuestCount, lang)} />
         <StatCard
           icon={Building2}
           label={t("common.department")}
@@ -159,7 +167,7 @@ export default function ManageTeam() {
         </TabsContent>
 
         <TabsContent value="quests">
-          <QuestManager fixedDepartmentId={dept.id} createdBy={user.id} />
+          <QuestManager fixedDepartmentId={dept.id} />
         </TabsContent>
       </Tabs>
     </div>

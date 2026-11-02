@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { History } from "lucide-react";
 import {
@@ -15,15 +15,15 @@ import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { DateStamp } from "@/components/common/DateStamp";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SubmissionPreviewDialog } from "./SubmissionPreviewDialog";
-import { useDemoData } from "@/store/DemoDataContext";
-import { submissionHistory, type SubmissionHistoryRow } from "@/store/selectors";
+import { useSubmissionHistoryQuery } from "@/queries/useAssignments";
 import { useLocale } from "@/hooks/useLocale";
+import type { SubmissionHistoryRow } from "@/api/assignmentApi";
 
 export function SubmissionHistory({ departmentId }: { departmentId: string }) {
   const { t } = useTranslation();
   const { t2 } = useLocale();
-  const { state } = useDemoData();
-  const rows = useMemo(() => submissionHistory(state, departmentId), [state, departmentId]);
+  const historyQuery = useSubmissionHistoryQuery(departmentId);
+  const rows = historyQuery.data ?? [];
   const [previewing, setPreviewing] = useState<SubmissionHistoryRow | null>(null);
 
   if (rows.length === 0) {

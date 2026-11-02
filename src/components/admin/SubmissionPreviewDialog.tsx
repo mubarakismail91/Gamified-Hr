@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getFile } from "@/store/fileStore";
+import { fetchSubmissionFileBlob } from "@/api/submissionApi";
 import type { QuestSubmission } from "@/data";
 
 export function SubmissionPreviewDialog({
@@ -18,31 +18,33 @@ export function SubmissionPreviewDialog({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!submission?.fileKey) {
+    if (!submission?.fileName) {
       setUrl(null);
       return;
     }
-    const fileKey = submission.fileKey;
+    const submissionId = submission.id;
     let objectUrl: string | null = null;
     let cancelled = false;
     setLoading(true);
-    getFile(fileKey).then((blob) => {
-      if (cancelled) return;
-      if (blob) {
+    fetchSubmissionFileBlob(submissionId)
+      .then((blob) => {
+        if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
-      } else {
-        setUrl(null);
-      }
-      setLoading(false);
-    });
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [submission]);
 
-  const hasFile = !!submission?.fileKey;
+  const hasFile = !!submission?.fileName;
   const isImage = submission?.fileType?.startsWith("image/") ?? false;
   const isPdf = submission?.fileType === "application/pdf";
 

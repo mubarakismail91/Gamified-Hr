@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DateStamp } from "@/components/common/DateStamp";
 import { NotificationKindIcon } from "@/components/notifications/NotificationKindIcon";
-import { useMyNotifications } from "@/store/hooks";
+import { useMyNotifications } from "@/queries/useNotifications";
 import { useLocale } from "@/hooks/useLocale";
 
 export function NotificationBell() {

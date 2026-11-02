@@ -11,12 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { useLocale } from "@/hooks/useLocale";
-import {
-  BADGE_DISTRIBUTION,
-  PARTICIPATION_TREND,
-  SDT_SCORES,
-  XP_BY_DEPT,
-} from "@/data";
+import type { Bi } from "@/data";
 
 const GREEN = "hsl(149 100% 21%)";
 const GOLD = "hsl(40 49% 52%)";
@@ -29,9 +24,9 @@ const tooltipStyle = {
   padding: "6px 10px",
 };
 
-export function ParticipationChart() {
+export function ParticipationChart({ data: points }: { data: { month: Bi; rate: number }[] }) {
   const { lang } = useLocale();
-  const data = PARTICIPATION_TREND.map((d) => ({ name: d.month[lang], rate: d.rate }));
+  const data = points.map((d) => ({ name: d.month[lang], rate: d.rate }));
   return (
     <ResponsiveContainer width="100%" height={240}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
@@ -58,9 +53,9 @@ export function ParticipationChart() {
   );
 }
 
-export function XpByDeptChart() {
+export function XpByDeptChart({ data: rows }: { data: { department: Bi; avgXp: number }[] }) {
   const { lang } = useLocale();
-  const data = XP_BY_DEPT.map((d) => ({ name: d.dept[lang], xp: d.xp }));
+  const data = rows.map((d) => ({ name: d.department[lang], xp: d.avgXp }));
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
@@ -69,8 +64,7 @@ export function XpByDeptChart() {
           type="number"
           tickLine={false}
           axisLine={false}
-          domain={[0, 4000]}
-          ticks={[0, 1000, 2000, 3000, 4000]}
+          domain={[0, "dataMax"]}
           allowDecimals={false}
         />
         <YAxis type="category" dataKey="name" width={128} tickLine={false} axisLine={false} />
@@ -81,9 +75,9 @@ export function XpByDeptChart() {
   );
 }
 
-export function BadgeDistributionChart() {
+export function BadgeDistributionChart({ data: rows }: { data: { tier: Bi; count: number }[] }) {
   const { lang } = useLocale();
-  const data = BADGE_DISTRIBUTION.map((d) => ({ name: d.tier[lang], count: d.count }));
+  const data = rows.map((d) => ({ name: d.tier[lang], count: d.count }));
   const colors = ["hsl(28 55% 45%)", "hsl(215 15% 55%)", GOLD];
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -94,8 +88,7 @@ export function BadgeDistributionChart() {
           tickLine={false}
           axisLine={false}
           width={44}
-          domain={[0, 2000]}
-          ticks={[0, 500, 1000, 1500, 2000]}
+          domain={[0, "dataMax"]}
           allowDecimals={false}
         />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(210 24% 96%)" }} />
@@ -109,9 +102,9 @@ export function BadgeDistributionChart() {
   );
 }
 
-export function SdtScoresChart() {
+export function SdtScoresChart({ data: rows }: { data: { scale: Bi; score: number }[] }) {
   const { lang } = useLocale();
-  const data = SDT_SCORES.map((d) => ({ name: d.scale[lang], score: d.score }));
+  const data = rows.map((d) => ({ name: d.scale[lang], score: d.score }));
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
