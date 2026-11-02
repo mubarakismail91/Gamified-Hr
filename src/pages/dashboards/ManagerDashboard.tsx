@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
+import { PersonLink } from "@/components/common/PersonLink";
 import { ApprovalsQueue } from "@/components/admin/ApprovalsQueue";
 import { useSession } from "@/context/SessionContext";
 import { useDepartmentsQuery } from "@/queries/useDepartments";
@@ -88,7 +89,7 @@ export default function ManagerDashboard() {
                 {team.map((member) => (
                   <li key={member.id} className="flex items-center gap-3 px-5 py-2.5">
                     <PersonAvatar person={member} size="sm" />
-                    <span className="flex-1 truncate text-sm">{t2(member.name)}</span>
+                    <PersonLink id={member.id} className="flex-1 truncate text-sm">{t2(member.name)}</PersonLink>
                     <span className="text-xs text-muted-foreground">
                       {formatNumber(member.totalXp, lang)} {t("common.xp")}
                     </span>
@@ -130,7 +131,7 @@ export default function ManagerDashboard() {
                   <li key={r.staffId} className="flex items-center gap-3 px-5 py-2.5">
                     <span className="w-5 text-center text-xs font-bold text-muted-foreground">{r.position}</span>
                     <PersonAvatar person={r.staff} size="sm" />
-                    <span className="flex-1 truncate text-sm">{t2(r.staff.name)}</span>
+                    <PersonLink id={r.staff.id} className="flex-1 truncate text-sm">{t2(r.staff.name)}</PersonLink>
                     <span className="text-sm font-semibold tabular-nums">{formatNumber(r.points, lang)}</span>
                   </li>
                 ))}

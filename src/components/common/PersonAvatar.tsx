@@ -8,7 +8,7 @@ export function PersonAvatar({
   size = "md",
   className,
 }: {
-  person: StaffMember;
+  person: Pick<StaffMember, "initials" | "avatarTone" | "name">;
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {

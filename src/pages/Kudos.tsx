@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
+import { PersonLink } from "@/components/common/PersonLink";
 import { DateStamp } from "@/components/common/DateStamp";
 import { useSession } from "@/context/SessionContext";
 import { useUsersQuery } from "@/queries/useUsers";
@@ -135,12 +136,14 @@ export default function Kudos() {
               return (
                 <Card key={k.id}>
                   <CardContent className="flex gap-3 p-4">
-                    <PersonAvatar person={from} size="sm" />
+                    <PersonLink id={from.id} className="shrink-0">
+                      <PersonAvatar person={from} size="sm" />
+                    </PersonLink>
                     <div className="min-w-0 flex-1 space-y-1">
                       <p className="text-sm leading-snug">
-                        <span className="font-semibold">{t2(from.name)}</span>{" "}
+                        <PersonLink id={from.id} className="font-semibold">{t2(from.name)}</PersonLink>{" "}
                         <span className="text-muted-foreground">{t("kudos.gave")}</span>{" "}
-                        <span className="font-semibold">{t2(to.name)}</span>
+                        <PersonLink id={to.id} className="font-semibold">{t2(to.name)}</PersonLink>
                       </p>
                       <p className="text-sm text-foreground/90">“{k.message[lang] || k.message.en}”</p>
                       <div className="flex items-center gap-2 pt-0.5">

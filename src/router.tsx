@@ -13,6 +13,7 @@ import SkillTree from "@/pages/SkillTree";
 import Surveys from "@/pages/Surveys";
 import Kudos from "@/pages/Kudos";
 import Profile from "@/pages/Profile";
+import PublicProfile from "@/pages/PublicProfile";
 import Notifications from "@/pages/Notifications";
 import AdminPanel from "@/pages/AdminPanel";
 import ManageTeam from "@/pages/ManageTeam";
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
       },
       { path: "/kudos", element: <Kudos /> },
       { path: "/profile", element: <Profile /> },
+      { path: "/people/:userId", element: <PublicProfile /> },
       { path: "/notifications", element: <Notifications /> },
       {
         path: "/manage-team",

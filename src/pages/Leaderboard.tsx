@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
+import { PersonLink } from "@/components/common/PersonLink";
 import { EmptyState } from "@/components/common/EmptyState";
 import { BadgeIcon } from "@/components/common/BadgeIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -236,10 +237,12 @@ export default function Leaderboard() {
                   >
                     {formatNumber(r.position, lang)}
                   </span>
-                  <PersonAvatar person={r.staff} size="sm" />
+                  <PersonLink id={r.staff.id} className="shrink-0">
+                    <PersonAvatar person={r.staff} size="sm" />
+                  </PersonLink>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {t2(r.staff.name)}
+                      <PersonLink id={r.staff.id}>{t2(r.staff.name)}</PersonLink>
                       {isMe && (
                         <Badge variant="secondary" className="ms-2 align-middle">
                           {t("common.you")}
