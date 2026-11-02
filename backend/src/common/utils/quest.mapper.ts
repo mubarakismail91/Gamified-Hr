@@ -25,6 +25,7 @@ export function toQuestDto(q: QuestWithRelations): QuestDto {
     steps: q.steps,
     due: q.dueAt ?? undefined,
     expired: isExpired(q),
+    skillBranch: q.skillBranch,
     departmentId: q.departmentId,
     assigneeId: q.assigneeId ?? undefined,
     status: q.status,

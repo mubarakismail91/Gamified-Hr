@@ -13,6 +13,8 @@ export interface QuestDto {
   due?: Date;
   /** True once `due` has passed — hidden from employees until a manager moves or clears the deadline. */
   expired: boolean;
+  /** Skill path this quest advances on completion; null for general quests. */
+  skillBranch: 'teaching' | 'research' | 'leadership' | 'digital' | null;
   departmentId: string | null;
   assigneeId?: string;
   status: 'published' | 'draft';

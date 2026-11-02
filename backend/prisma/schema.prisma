@@ -144,6 +144,7 @@ model User {
   auditEntries        AuditLog[]
   refreshTokens       RefreshToken[]
   surveyParticipation SurveyParticipation[]
+  skillPaths          UserSkillPath[]
 }
 
 model Quest {
@@ -162,6 +163,7 @@ model Quest {
   xp            Int
   steps         Int             @default(1)
   dueAt         DateTime?
+  skillBranch   SkillBranch?    // which skill path completing this quest advances; null = general, no skill progress
   requireFile   Boolean         @default(false) // soft recommendation only, never enforced
   status        QuestStatus     @default(published)
   departmentId  String?         // null = university-wide (Admin-created)
@@ -175,6 +177,17 @@ model Quest {
   assignments   QuestAssignment[]
   subtasks      QuestSubtask[]
   attachments   QuestAttachment[]
+}
+
+/// A skill path (branch) an employee has chosen to follow. Progress itself is derived from completed quests.
+model UserSkillPath {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch    SkillBranch
+  startedAt DateTime    @default(now())
+
+  @@unique([userId, branch])
 }
 
 /// One checklist item under a quest. `Quest.steps` is kept equal to the number of subtasks (min 1).
@@ -402,6 +415,7 @@ model SurveyParticipation {
 // Read-only reference catalog (Phase F) — same illustrative state/level for
 // every viewer, matching the frontend's pre-existing behavior exactly. Not
 // yet per-user; see the Phase F decision log for why.
+/// Catalog only. `state` and `level` are legacy demo values — real per-employee progress is computed in SkillsService.
 model Skill {
   id            String      @id @default(cuid())
   nameEn        String

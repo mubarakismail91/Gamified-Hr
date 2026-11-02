@@ -70,6 +70,7 @@ export class QuestsService {
         instructionsEn: dto.instructionsEn ?? '',
         instructionsAr: dto.instructionsAr || dto.instructionsEn || '',
         estimatedMinutes: dto.estimatedMinutes,
+        skillBranch: dto.skillBranch ?? null,
         steps: dto.subtasks?.length ? dto.subtasks.length : (dto.steps ?? 1),
         subtasks: {
           create: (dto.subtasks ?? []).map((st, position) => ({
@@ -128,6 +129,7 @@ export class QuestsService {
         instructionsEn: dto.instructionsEn,
         instructionsAr: dto.instructionsAr,
         estimatedMinutes: dto.estimatedMinutes,
+        skillBranch: dto.skillBranch,
         steps: dto.steps,
         dueAt: dto.dueAt !== undefined ? (dto.dueAt ? new Date(dto.dueAt) : null) : undefined,
         requireFile: dto.requireFile,

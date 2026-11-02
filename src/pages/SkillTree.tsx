@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Check, Circle, Lock } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useLocale } from "@/hooks/useLocale";
-import { cn } from "@/lib/utils";
-import { useSkillsQuery } from "@/queries/useSkills";
+import { cn, formatNumber } from "@/lib/utils";
+import { useSession } from "@/context/SessionContext";
+import { useFollowSkillPathMutation, useSkillPathsQuery, useSkillsQuery } from "@/queries/useSkills";
 import type { SkillNode } from "@/data";
 
 const BRANCHES: { key: SkillNode["branch"]; labelKey: string }[] = [
@@ -31,9 +35,23 @@ const STATE_STYLE = {
 
 export default function SkillTree() {
   const { t } = useTranslation();
-  const { t2 } = useLocale();
+  const { t2, lang } = useLocale();
+  const { role } = useSession();
   const [active, setActive] = useState<SkillNode | null>(null);
   const skillsQuery = useSkillsQuery();
+  const pathsQuery = useSkillPathsQuery();
+  const followPath = useFollowSkillPathMutation();
+  const pathFor = (branch: SkillNode["branch"]) => pathsQuery.data?.find((p) => p.branch === branch);
+  const levelText = (current: number, max: number) =>
+    current === 0
+      ? t("skills.notStarted")
+      : t("skills.levelOf", { current: formatNumber(current, lang), max: formatNumber(max, lang) });
+
+  const follow = (branch: SkillNode["branch"]) =>
+    followPath.mutate(branch, {
+      onSuccess: () => toast.success(t("skills.followedToast")),
+      onError: () => toast.error(t("quests.submitError")),
+    });
   const SKILLS = skillsQuery.data ?? [];
   const skillById = (id: string) => SKILLS.find((s) => s.id === id);
   const rows = [0, 1, 2];
@@ -52,11 +70,41 @@ export default function SkillTree() {
         <div className="min-w-[720px]">
           {/* Branch headers */}
           <div className="grid grid-cols-4 gap-x-6">
-            {BRANCHES.map((b) => (
-              <h2 key={b.key} className="pb-2 text-center text-sm font-semibold text-muted-foreground">
-                {t(b.labelKey)}
-              </h2>
-            ))}
+            {BRANCHES.map((b) => {
+              const path = pathFor(b.key);
+              return (
+                <div key={b.key} className="space-y-1.5 pb-3 text-center">
+                  <h2 className="text-sm font-semibold text-muted-foreground">{t(b.labelKey)}</h2>
+                  {path && (
+                    <>
+                      <Progress value={path.total ? (path.points / path.total) * 100 : 0} className="h-1.5" />
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("skills.pathProgress", {
+                          done: formatNumber(Math.min(path.points, path.total), lang),
+                          total: formatNumber(path.total, lang),
+                        })}
+                      </p>
+                      {role === "employee" &&
+                        (path.followed ? (
+                          <Badge variant="success" className="text-[10px]">
+                            {t("skills.following")}
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={followPath.isPending}
+                            onClick={() => follow(b.key)}
+                          >
+                            {t("skills.followPath")}
+                          </Button>
+                        ))}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Grid of nodes, row by row */}
@@ -82,7 +130,7 @@ export default function SkillTree() {
                           <div className="flex items-center justify-between">
                             <StateDot state={node.state} />
                             <span className="text-[11px] font-medium text-muted-foreground">
-                              {t("skills.levelOf", { current: node.level, max: node.maxLevel })}
+                              {levelText(node.level, node.maxLevel)}
                             </span>
                           </div>
                           <p className="text-sm font-semibold leading-tight">{t2(node.name)}</p>
@@ -111,7 +159,7 @@ export default function SkillTree() {
               </DialogHeader>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between rounded-md bg-secondary/60 px-3 py-2">
-                  <span className="text-muted-foreground">{t("skills.levelOf", { current: active.level, max: active.maxLevel })}</span>
+                  <span className="text-muted-foreground">{levelText(active.level, active.maxLevel)}</span>
                   <Badge
                     variant={
                       active.state === "unlocked" ? "success" : active.state === "in-progress" ? "gold" : "muted"
@@ -126,6 +174,7 @@ export default function SkillTree() {
                     )}
                   </Badge>
                 </div>
+                <p className="text-xs text-muted-foreground">{t("skills.howToLevel")}</p>
                 {active.requires?.map((rid) => {
                   const req = skillById(rid);
                   return req ? (

@@ -36,6 +36,7 @@ function useInvalidateAssignments() {
     queryClient.invalidateQueries({ queryKey: ["assignments"] });
     queryClient.invalidateQueries({ queryKey: ["users"] });
     queryClient.invalidateQueries({ queryKey: ["badges"] });
+    queryClient.invalidateQueries({ queryKey: ["skills"] });
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 }

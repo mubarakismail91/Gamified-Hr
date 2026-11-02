@@ -67,6 +67,14 @@ const endOfDayIso = (dateInput: string) => new Date(`${dateInput}T23:59:59`).toI
 
 type SubtaskDraft = { id?: string; titleEn: string; descriptionEn: string };
 
+const SKILL_PATHS = [
+  { key: "teaching", labelKey: "skills.branchTeaching" },
+  { key: "research", labelKey: "skills.branchResearch" },
+  { key: "leadership", labelKey: "skills.branchLeadership" },
+  { key: "digital", labelKey: "skills.branchDigital" },
+] as const;
+const NO_SKILL_PATH = "__none__";
+
 const UNIVERSITY_WIDE = "__all__";
 const EVERYONE = "__everyone__";
 
@@ -76,6 +84,8 @@ type Draft = {
   descriptionEn: string;
   cadence: Quest["cadence"];
   categoryEn: string;
+  /** Skill path this quest advances, or NO_SKILL_PATH. The path's name doubles as the quest's category label. */
+  skillBranch: string;
   difficulty: Quest["difficulty"];
   xp: number;
   departmentId: string;
@@ -99,6 +109,7 @@ function emptyDraft(fixedDepartmentId?: string): Draft {
     descriptionEn: "",
     cadence: "daily",
     categoryEn: "",
+    skillBranch: NO_SKILL_PATH,
     difficulty: "medium",
     xp: 30,
     departmentId: fixedDepartmentId ?? UNIVERSITY_WIDE,
@@ -122,7 +133,7 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t2, lang } = useLocale();
 
   const questsQuery = useQuestsQuery();
@@ -150,6 +161,7 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
       descriptionEn: q.description.en,
       cadence: q.cadence,
       categoryEn: q.category.en,
+      skillBranch: q.skillBranch ?? NO_SKILL_PATH,
       difficulty: q.difficulty,
       xp: q.xp,
       departmentId: q.departmentId ?? UNIVERSITY_WIDE,
@@ -169,11 +181,16 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
     const departmentId = editing.departmentId === UNIVERSITY_WIDE ? null : editing.departmentId;
     const assigneeId = editing.assigneeId === EVERYONE ? undefined : editing.assigneeId;
 
+    const pathLabel = SKILL_PATHS.find((p) => p.key === editing.skillBranch)?.labelKey;
+
     const payload = {
       titleEn: editing.titleEn,
       descriptionEn: editing.descriptionEn,
       cadence: editing.cadence,
-      categoryEn: editing.categoryEn,
+      // A skill path names the category in both languages; a general quest keeps whatever label it had.
+      skillBranch: editing.skillBranch === NO_SKILL_PATH ? null : (editing.skillBranch as Quest["skillBranch"]),
+      categoryEn: pathLabel ? i18n.getFixedT("en")(pathLabel) : editing.categoryEn,
+      categoryAr: pathLabel ? i18n.getFixedT("ar")(pathLabel) : undefined,
       difficulty: editing.difficulty,
       xp: editing.xp,
       departmentId,
@@ -581,11 +598,22 @@ export function QuestManager({ fixedDepartmentId }: { fixedDepartmentId?: string
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>{t("quests.categoryLabel")}</Label>
-                  <Input
-                    value={editing.categoryEn}
-                    onChange={(e) => setEditing({ ...editing, categoryEn: e.target.value })}
-                  />
+                  <Label>{t("admin.skillPathLabel")}</Label>
+                  <Select
+                    value={editing.skillBranch}
+                    onValueChange={(v) => setEditing({ ...editing, skillBranch: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_SKILL_PATH}>{t("admin.skillPathNone")}</SelectItem>
+                      {SKILL_PATHS.map((p) => (
+                        <SelectItem key={p.key} value={p.key}>
+                          {t(p.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{t("admin.skillPathHint")}</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("common.xp")}</Label>

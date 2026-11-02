@@ -25,6 +25,7 @@ export interface CreateQuestInput {
   status?: Quest["status"];
   departmentId?: string | null;
   assigneeId?: string;
+  skillBranch?: Quest["skillBranch"];
   instructionsEn?: string;
   estimatedMinutes?: number;
   /** Replaces the whole checklist when provided. */

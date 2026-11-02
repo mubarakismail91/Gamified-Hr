@@ -65,6 +65,11 @@ export class CreateQuestDto {
   @IsString()
   assigneeId?: string;
 
+  // Which skill path completing this quest advances (null clears it).
+  @IsOptional()
+  @IsIn(['teaching', 'research', 'leadership', 'digital'])
+  skillBranch?: 'teaching' | 'research' | 'leadership' | 'digital' | null;
+
   @IsOptional()
   @IsString()
   instructionsEn?: string;

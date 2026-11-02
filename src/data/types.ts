@@ -66,6 +66,8 @@ export interface Quest {
   due?: Date;
   /** True once the deadline has passed; hidden from employees until a manager reactivates it. */
   expired?: boolean;
+  /** Skill path this quest advances when completed; null/absent = general quest. */
+  skillBranch?: SkillNode["branch"] | null;
   /** null = university-wide (Admin only); otherwise scopes the quest to one department. */
   departmentId: string | null;
   /** Optional: assign to one specific person instead of the whole department. */
@@ -162,6 +164,16 @@ export interface SkillNode {
   requires?: string[];
   col: number;
   row: number;
+}
+
+/** One skill path (branch) from the signed-in employee's point of view. */
+export interface SkillPath {
+  branch: SkillNode["branch"];
+  followed: boolean;
+  /** Quests completed on this path — each is one level. */
+  points: number;
+  /** Levels available across the whole path. */
+  total: number;
 }
 
 export interface Kudo {

@@ -132,6 +132,16 @@ export class AssignmentsService {
       }),
     ]);
 
+    // Completing a quest on a skill path starts (follows) that path for the employee; the level itself is
+    // derived from their completed quests, so there's nothing else to record.
+    if (quest.skillBranch) {
+      await this.prisma.userSkillPath.upsert({
+        where: { userId_branch: { userId: assignment.employeeId, branch: quest.skillBranch } },
+        create: { userId: assignment.employeeId, branch: quest.skillBranch },
+        update: {},
+      });
+    }
+
     await logAudit(this.prisma, {
       actorId: actor.id,
       action: 'assignment.approved',
