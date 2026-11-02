@@ -113,7 +113,9 @@ export class AuthService {
     res.cookie(REFRESH_COOKIE_NAME, raw, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
-      sameSite: 'lax',
+      // Hosted frontend and API live on different sites, so the cookie must be
+      // allowed cross-site there; 'lax' is enough (and safer) in local dev.
+      sameSite: this.config.get('NODE_ENV') === 'production' ? 'none' : 'lax',
       path: '/auth', // only sent back to /auth/refresh and /auth/logout, not every request
       expires: expiresAt,
     });
