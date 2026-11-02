@@ -1,87 +1,95 @@
-# IU Gamified HR — Phase 1 Frontend Prototype
+# IU Gamified HR
 
-A clickable, visually complete frontend preview of a gamified employee-engagement
-platform for the **Islamic University of Madinah**, built on Self-Determination
-Theory (autonomy · competence · relatedness) and the PBL triad (Points, Badges,
-Leaderboards).
+A gamified employee-engagement platform for the **Islamic University of Madinah**,
+built on Self-Determination Theory (autonomy · competence · relatedness) and the
+PBL triad (Points, Badges, Leaderboards). Graduation project (GP2).
 
-**Phase 1 = frontend only.** No backend, no real authentication. All data is mock
-data in `src/data/`. The SSO flow is a visual simulation.
+Staff earn XP by completing quests, receive peer kudos, unlock badges and
+competencies, and climb a leaderboard. HR administrators manage quests, review
+submissions, and run anonymous SDT pulse surveys.
 
----
+## Features
 
-## Run locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:5173. Click **Sign in with University Portal** to enter.
-
-Other scripts:
-
-| Command | Purpose |
-| --- | --- |
-| `npm run build` | Type-check + production build to `dist/` |
-| `npm run preview` | Serve the production build |
-| `npm run typecheck` | `tsc --noEmit` only |
-
----
+- **Quests** — daily quests and epic challenges; staff accept, submit and get approved by a manager/admin.
+- **XP, levels and leaderboard** — filter by period, scope and metric.
+- **Badges** — earned vs. locked gallery.
+- **Competency map** — four skill branches with unlock paths.
+- **Kudos** — peer recognition with a university-wide feed.
+- **Public profiles** — click a colleague to view their badges, competencies and recent kudos (read-only).
+- **Pulse surveys** — admins pick SDT items from a question bank (1–5 scale). Responses are anonymous, and results are hidden until at least 5 people have answered.
+- **Roles** — Employee, Manager and Admin, each with its own dashboard and permissions.
+- **Bilingual** — English and Arabic with full RTL layout.
+- **Admin panel** — analytics, quest management, survey rounds and an audit trail.
 
 ## Tech stack
 
-- **Vite + React 18 + TypeScript**
-- **Tailwind CSS** with an IU theme (green `#006C35`, gold `#C8A45D`, navy ink)
-- **shadcn-style UI primitives** (`src/components/ui/`) on Radix
-- **react-router-dom** for routing, **react-i18next** for EN/AR
-- **Recharts** for the admin analytics
-- **sonner** for toasts
-
-## Prototype controls
-
-- **Language toggle** (navbar) — switches EN ↔ AR with full RTL layout flip.
-- **Preview as** (navbar) — role switcher: Employee / Manager / HR / Administrator.
-  Changes which navigation items and admin tools appear. Not part of the real product.
-- **Back to IU Portal** — link to `iu.edu.sa` (portal-continuity cue).
-
-## Screens
-
-| Route | Screen |
+| Layer | Technology |
 | --- | --- |
-| `/` | Landing / SSO entry (+ simulated handshake) |
-| `/dashboard` | Employee dashboard — XP, rank ring, stats, badges, activity |
-| `/leaderboard` | Leaderboard with period / scope / metric filters |
-| `/quests` | Daily quests + epic challenges, accept & track |
-| `/badges` | Badge gallery — earned (colour) vs locked (greyed) |
-| `/skills` | Competence map — 4 branches, unlock paths |
-| `/kudos` | Peer recognition — send Kudos + university feed |
-| `/profile` | Full profile — overview / badges / competencies / history |
-| `/notifications` | Notification centre with filters |
-| `/admin` | HR & Admin panel — analytics, demographics, quest CRUD, SDT surveys, audit trail |
+| Frontend | Vite, React 18, TypeScript, Tailwind CSS, Radix UI (shadcn-style), TanStack Query, react-router, react-i18next, Recharts |
+| Backend | NestJS, Prisma 7, class-validator, JWT auth with role-based access |
+| Database | PostgreSQL |
+
+## Getting started
+
+Requirements: Node.js 20+ and a running PostgreSQL instance.
+
+### 1. Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env     # then edit DATABASE_URL and the JWT secrets
+npx prisma migrate deploy
+npx prisma generate
+npm run seed:admin       # creates the first admin account (see .env)
+npm run seed:badges
+npm run seed:skills
+npm run start:dev        # http://localhost:4000
+```
+
+### 2. Frontend
+
+```bash
+# from the repository root
+npm install
+cp .env.example .env     # VITE_API_BASE_URL defaults to http://localhost:4000
+npm run dev              # http://localhost:5173
+```
+
+Sign in with the admin credentials from `backend/.env`. The access token is kept
+in memory, so reloading the page signs you out.
+
+### Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the frontend dev server |
+| `npm run build` | Type-check and build the frontend to `dist/` |
+| `npm run typecheck` | `tsc --noEmit` only |
+| `npm run start:dev` (in `backend/`) | Run the API in watch mode |
+| `npm run test` (in `backend/`) | Run backend unit tests |
 
 ## Project structure
 
 ```
-src/
-  data/          all mock data (staff, quests, badges, skills, kudos, analytics…)
-  i18n/          en.ts / ar.ts dictionaries + config
-  lib/           utils, date+Hijri helpers, xp curve, cross-cutting selectors
-  hooks/         useLocale (language + dir + bilingual resolver)
-  context/       SessionContext (auth + role), NotificationsContext
-  components/
-    ui/          Radix-based primitives (button, card, dialog, select, …)
-    common/      BrandMark, StatCard, PersonAvatar, DateStamp, LevelRing, …
-    layout/      Navbar, Sidebar (NavLinks), Footer, AppShell
-    dashboard/   RankHero, BadgeShowcase, ActivityFeed
-    admin/       Charts (Recharts), QuestManager
-  pages/         one file per screen
+src/                  frontend
+  api/                axios client and per-feature API modules
+  queries/            TanStack Query hooks
+  pages/              one file per screen
+  components/         ui primitives, common, layout, admin
+  i18n/               en.ts / ar.ts dictionaries
+  context/            session (auth + role)
+backend/
+  prisma/             schema, migrations, seed scripts
+  src/                one NestJS module per feature
+                      (auth, users, quests, assignments, badges, kudos,
+                       leaderboard, surveys, skills, profiles, analytics, audit…)
+Doc/                  project reports and presentations
 ```
 
-## Notes & known placeholders
+## Notes
 
-- `public/iu-mark.svg` is a **neutral placeholder emblem** — replace with the
-  official university crest before any real use.
-- Bundle size warning on build is expected (Recharts + Radix); code-splitting is
-  a Phase 2 optimisation.
-- Dates render Gregorian + Hijri (Umm al-Qura) via the `Intl` API.
+- `public/iu-mark.svg` is a neutral placeholder emblem, not the official university crest.
+- Survey questions are adapted from common workplace SDT measures (Deci et al., 2001; Van den Broeck et al., 2010). The wording is paraphrased and has not been validated as a set.
+- Dates render in Gregorian and Hijri (Umm al-Qura) via the `Intl` API.
+- Project plan: see [`PHASE_2_PLAN.md`](PHASE_2_PLAN.md).
