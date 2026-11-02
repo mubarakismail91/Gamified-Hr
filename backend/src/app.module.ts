@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { SkillsModule } from './skills/skills.module';
+import { ActivityModule } from './activity/activity.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -39,6 +40,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AuditModule,
     AnalyticsModule,
     SkillsModule,
+    ActivityModule,
     SurveysModule,
   ],
   controllers: [AppController],

@@ -8,7 +8,6 @@ import "./index.css";
 import { router } from "./router";
 import { AuthProvider } from "./context/AuthContext";
 import { SessionProvider } from "./context/SessionContext";
-import { DemoDataProvider } from "./store/DemoDataContext";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 const queryClient = new QueryClient({
@@ -19,14 +18,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DemoDataProvider>
-          <SessionProvider>
-            <TooltipProvider delayDuration={200}>
-              <RouterProvider router={router} />
-              <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 3200 }} />
-            </TooltipProvider>
-          </SessionProvider>
-        </DemoDataProvider>
+        <SessionProvider>
+          <TooltipProvider delayDuration={200}>
+            <RouterProvider router={router} />
+            <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 3200 }} />
+          </TooltipProvider>
+        </SessionProvider>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>,

@@ -13,9 +13,8 @@ import { BadgeIcon } from "@/components/common/BadgeIcon";
 import { StatCard } from "@/components/common/StatCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
-import { useMyActivity } from "@/store/hooks";
-import { completedQuestCount } from "@/store/selectors";
+import { useMyActivity } from "@/queries/useActivity";
+import { useMyAssignmentsQuery } from "@/queries/useAssignments";
 import { useMyBadges } from "@/queries/useBadges";
 import { useKudosQuery } from "@/queries/useKudos";
 import { useLocale } from "@/hooks/useLocale";
@@ -42,8 +41,10 @@ export default function Profile() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const { user, role } = useSession();
-  const { state } = useDemoData();
   const activity = useMyActivity();
+  // Only employees take quests; the endpoint is employee-only.
+  const assignmentsQuery = useMyAssignmentsQuery({ enabled: role === "employee" });
+  const questsDone = (assignmentsQuery.data ?? []).filter((a) => a.state === "completed").length;
 
   const prog = levelFromXp(user.totalXp);
   const rankName = lang === "ar" ? prog.current.nameAr : prog.current.nameEn;
@@ -114,7 +115,7 @@ export default function Profile() {
           <StatCard
             icon={Swords}
             label={t("profile.questsDone")}
-            value={formatNumber(completedQuestCount(state, user.id), lang)}
+            value={formatNumber(questsDone, lang)}
             tone="muted"
           />
         </div>

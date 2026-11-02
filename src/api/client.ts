@@ -2,10 +2,8 @@ import axios, { AxiosError } from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
-// Same ISO-datetime check the old demo store's localStorage reviver used
-// (src/store/DemoDataContext.tsx) — every API response gets the same
-// automatic string -> Date conversion, so callers never see a raw ISO string
-// where the rest of the app expects a real Date.
+// Every API response gets automatic ISO string -> Date conversion, so callers
+// never see a raw ISO string where the rest of the app expects a real Date.
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function reviveDates(value: unknown): unknown {

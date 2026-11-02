@@ -392,9 +392,6 @@ export const en = {
     deleteDeptConfirm: "Delete “{{name}}”? This cannot be undone.",
     deleteDeptBlocked: "Move or reassign its staff to another department before deleting it.",
     noDepartments: "No departments yet.",
-    resetData: "Reset demo data",
-    resetDataConfirm: "This replaces every user, department, quest, and history entry with the original seed data. Anything you've added or changed will be lost.",
-    resetDataToast: "Demo data reset to the original seed.",
     surveyTitle: "Self-Determination Theory pulse surveys",
     surveyDesc:
       "Short quarterly surveys measuring autonomy, competence, and relatedness. Used for research and programme tuning only — responses are anonymised.",

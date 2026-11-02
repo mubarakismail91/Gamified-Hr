@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubmitQuestWorkMutation } from "@/queries/useSubmissions";
 import { useLocale } from "@/hooks/useLocale";
-import type { QuestView } from "@/store/selectors";
+import type { QuestView } from "@/queries/useMyQuestViews";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_EXTENSIONS = [

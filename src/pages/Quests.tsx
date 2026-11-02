@@ -18,7 +18,7 @@ import { useAcceptQuestMutation, useAdvanceQuestMutation } from "@/queries/useAs
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import { DIFFICULTY_BADGE_VARIANT, DIFFICULTY_LABEL_KEY } from "@/lib/questDisplay";
-import type { QuestView } from "@/store/selectors";
+import type { QuestView } from "@/queries/useMyQuestViews";
 
 export default function Quests() {
   const { t } = useTranslation();

@@ -1,7 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import { useDemoData } from "@/store/DemoDataContext";
 import { useAuth } from "@/context/AuthContext";
-import { DEFAULT_USER_ID } from "@/store/seed";
 import type { Role, StaffMember } from "@/data";
 
 interface SessionValue {
@@ -16,18 +14,38 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+/** Stand-in for the pre-login screens, which never read it — every authenticated route is gated by RequireAuth. */
+const SIGNED_OUT_USER: StaffMember = {
+  id: "",
+  name: { en: "", ar: "" },
+  initials: "",
+  title: { en: "", ar: "" },
+  departmentId: null,
+  department: { en: "", ar: "" },
+  college: { en: "", ar: "" },
+  role: "employee",
+  gender: "male",
+  staffId: "",
+  email: "",
+  office: { en: "", ar: "" },
+  joined: new Date(0),
+  totalXp: 0,
+  pointsThisWeek: 0,
+  pointsThisMonth: 0,
+  xpGainedThisMonth: 0,
+  streakDays: 0,
+  badgeIds: [],
+  avatarTone: "",
+};
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { state } = useDemoData();
   const { authUser, authLoading, logout } = useAuth();
 
   const signOut = useCallback(() => {
     void logout();
   }, [logout]);
 
-  // Every authenticated route is gated behind RequireAuth (see router.tsx),
-  // so authUser is always set by the time a real page reads `user` — this
-  // fallback only matters pre-login (e.g. Landing, which never reads it).
-  const user = authUser ?? state.users.find((u) => u.id === DEFAULT_USER_ID)!;
+  const user = authUser ?? SIGNED_OUT_USER;
 
   const value = useMemo<SessionValue>(
     () => ({ authed: !!authUser, authLoading, user, role: user.role, signOut }),

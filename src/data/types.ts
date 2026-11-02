@@ -116,9 +116,8 @@ export interface UserQuest {
 }
 
 /**
- * A file-backed proof-of-work submission for one quest attempt. The actual file
- * bytes live in IndexedDB (see src/store/fileStore.ts) keyed by `fileKey` —
- * only metadata is kept here in the main (localStorage-persisted) demo state.
+ * A proof-of-work submission for one quest attempt. The file itself is stored
+ * by the backend and downloaded through `GET /submissions/:id/file`.
  */
 export interface QuestSubmission {
   id: string;

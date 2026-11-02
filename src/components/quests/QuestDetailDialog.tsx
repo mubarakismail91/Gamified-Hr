@@ -17,7 +17,7 @@ import { fetchQuestAttachmentBlob } from "@/api/questApi";
 import { cn, formatBytes, formatNumber, saveBlob } from "@/lib/utils";
 import { DIFFICULTY_BADGE_VARIANT, DIFFICULTY_LABEL_KEY } from "@/lib/questDisplay";
 import type { QuestAttachment } from "@/data";
-import type { QuestView } from "@/store/selectors";
+import type { QuestView } from "@/queries/useMyQuestViews";
 
 export function QuestDetailDialog({
   view,

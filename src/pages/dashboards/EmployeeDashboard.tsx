@@ -9,7 +9,7 @@ import { RankHero } from "@/components/dashboard/RankHero";
 import { BadgeShowcase } from "@/components/dashboard/BadgeShowcase";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { useSession } from "@/context/SessionContext";
-import { useMyActivity } from "@/store/hooks";
+import { useMyActivity } from "@/queries/useActivity";
 import { useMyBadges } from "@/queries/useBadges";
 import { useLeaderboardQuery } from "@/queries/useLeaderboard";
 import { useMyAssignmentsQuery } from "@/queries/useAssignments";

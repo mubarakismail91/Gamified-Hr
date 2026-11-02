@@ -2,7 +2,13 @@ import { useMemo } from "react";
 import { useSession } from "@/context/SessionContext";
 import { useQuestsQuery } from "./useQuests";
 import { useMyAssignmentsQuery } from "./useAssignments";
-import type { QuestView } from "@/store/selectors";
+import type { Quest, UserQuest } from "@/data";
+
+/** A quest paired with the signed-in employee's own progress on it. */
+export interface QuestView {
+  quest: Quest;
+  progress: UserQuest;
+}
 
 /**
  * Client-side equivalent of the demo's visibleQuestsFor() — the backend's

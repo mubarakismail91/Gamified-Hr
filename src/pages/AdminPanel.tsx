@@ -9,7 +9,6 @@ import {
   FileSpreadsheet,
   Lock,
   Plus,
-  RotateCcw,
   ScrollText,
   Users,
 } from "lucide-react";
@@ -48,7 +47,6 @@ import { QuestManager } from "@/components/admin/QuestManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
-import { useDemoData } from "@/store/DemoDataContext";
 import { useAuditQuery } from "@/queries/useAudit";
 import { useAnalyticsOverviewQuery, useDemographicsQuery } from "@/queries/useAnalytics";
 import { useSdtScoresQuery, useSurveyRoundsQuery, useCreateSurveyRoundMutation } from "@/queries/useSurveys";
@@ -61,14 +59,12 @@ export default function AdminPanel() {
   const { t } = useTranslation();
   const { t2, lang } = useLocale();
   const { role } = useSession();
-  const { resetToSeed } = useDemoData();
   const auditQuery = useAuditQuery();
   const overviewQuery = useAnalyticsOverviewQuery();
   const demographicsQuery = useDemographicsQuery();
   const surveyRoundsQuery = useSurveyRoundsQuery();
   const sdtScoresQuery = useSdtScoresQuery();
   const createSurveyRound = useCreateSurveyRoundMutation();
-  const [resetOpen, setResetOpen] = useState(false);
   const [newRoundOpen, setNewRoundOpen] = useState(false);
   const [roundTitleEn, setRoundTitleEn] = useState("");
   const [roundTitleAr, setRoundTitleAr] = useState("");
@@ -91,12 +87,6 @@ export default function AdminPanel() {
       </div>
     );
   }
-
-  const confirmReset = () => {
-    resetToSeed();
-    toast.success(t("admin.resetDataToast"));
-    setResetOpen(false);
-  };
 
   const openNewRound = () => {
     setRoundTitleEn("");
@@ -132,12 +122,6 @@ export default function AdminPanel() {
       <PageHeader
         title={t("admin.title")}
         subtitle={t("admin.subtitle")}
-        actions={
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setResetOpen(true)}>
-            <RotateCcw className="h-4 w-4" />
-            {t("admin.resetData")}
-          </Button>
-        }
       />
 
       <div className="stat-grid">
@@ -337,26 +321,6 @@ export default function AdminPanel() {
           </div>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4" />
-              {t("admin.resetData")}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t("admin.resetDataConfirm")}</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResetOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="destructive" onClick={confirmReset}>
-              {t("admin.resetData")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={newRoundOpen} onOpenChange={setNewRoundOpen}>
         <DialogContent>

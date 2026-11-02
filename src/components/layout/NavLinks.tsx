@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { visibleNav, type NavItem } from "./nav";
 import { useSession } from "@/context/SessionContext";
-import { useMyNotifications } from "@/store/hooks";
+import { useMyNotifications } from "@/queries/useNotifications";
 import { cn } from "@/lib/utils";
 
 const SECTION_ORDER: NavItem["section"][] = ["main", "community", "manage"];

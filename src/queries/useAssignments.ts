@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as assignmentApi from "@/api/assignmentApi";
 
-export function useMyAssignmentsQuery() {
+export function useMyAssignmentsQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["assignments", "mine"],
     queryFn: assignmentApi.listMyAssignments,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -37,6 +38,7 @@ function useInvalidateAssignments() {
     queryClient.invalidateQueries({ queryKey: ["users"] });
     queryClient.invalidateQueries({ queryKey: ["badges"] });
     queryClient.invalidateQueries({ queryKey: ["skills"] });
+    queryClient.invalidateQueries({ queryKey: ["activity"] });
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 }
