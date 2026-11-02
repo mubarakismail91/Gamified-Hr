@@ -12,7 +12,6 @@ export interface SurveyQuestion {
 export interface ActiveSurvey {
   id: string;
   title: Bi;
-  quarter: string;
   questions: SurveyQuestion[];
 }
 
@@ -30,9 +29,22 @@ export interface SdtScoresResult {
 export interface CreateSurveyRoundInput {
   titleEn: string;
   titleAr?: string;
-  quarter: string;
   opensAt: string;
   closesAt?: string;
+  questionKeys?: string[];
+}
+
+export interface BankQuestion {
+  key: string;
+  scale: SdtScale;
+  source: "wbns" | "pulse";
+  isDefault: boolean;
+  text: Bi;
+}
+
+export async function getQuestionBank(): Promise<BankQuestion[]> {
+  const res = await apiClient.get<BankQuestion[]>("/surveys/question-bank");
+  return res.data;
 }
 
 export async function listSurveyRounds(): Promise<SurveyRound[]> {

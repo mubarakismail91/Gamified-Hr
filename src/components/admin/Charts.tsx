@@ -111,8 +111,8 @@ export function SdtScoresChart({ data: rows }: { data: { scale: Bi; score: numbe
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="name" tickLine={false} axisLine={false} />
         <YAxis
-          domain={[0, 7]}
-          ticks={[0, 1, 2, 3, 4, 5, 6, 7]}
+          domain={[0, 5]}
+          ticks={[0, 1, 2, 3, 4, 5]}
           tickLine={false}
           axisLine={false}
           width={44}

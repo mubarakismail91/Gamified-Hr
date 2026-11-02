@@ -366,7 +366,6 @@ model SurveyRound {
   id            String                 @id @default(cuid())
   titleEn       String
   titleAr       String
-  quarter       String
   opensAt       DateTime
   closesAt      DateTime?
   targetCount   Int
@@ -389,7 +388,7 @@ model SurveyQuestion {
 
 /**
  * Deliberately has no userId — anonymity by construction, not by policy.
- * `answers` is { [questionId]: 1-7 }. Who *completed* the round (for
+ * `answers` is { [questionId]: 1-5 }. Who *completed* the round (for
  * reminders / the participation XP) is tracked separately in
  * SurveyParticipation, which never touches this table.
  */

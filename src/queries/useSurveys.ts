@@ -8,6 +8,14 @@ export function useSurveyRoundsQuery() {
   });
 }
 
+export function useQuestionBankQuery() {
+  return useQuery({
+    queryKey: ["surveys", "question-bank"] as const,
+    queryFn: surveyApi.getQuestionBank,
+    staleTime: Infinity,
+  });
+}
+
 export function useSdtScoresQuery(roundId?: string) {
   return useQuery({
     queryKey: ["surveys", "scores", roundId ?? "latest"] as const,

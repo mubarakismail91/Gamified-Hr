@@ -49,7 +49,12 @@ import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
 import { useAnalyticsOverviewQuery, useDemographicsQuery } from "@/queries/useAnalytics";
-import { useSdtScoresQuery, useSurveyRoundsQuery, useCreateSurveyRoundMutation } from "@/queries/useSurveys";
+import {
+  useQuestionBankQuery,
+  useSdtScoresQuery,
+  useSurveyRoundsQuery,
+  useCreateSurveyRoundMutation,
+} from "@/queries/useSurveys";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -65,10 +70,10 @@ export default function AdminPanel() {
   const surveyRoundsQuery = useSurveyRoundsQuery();
   const sdtScoresQuery = useSdtScoresQuery();
   const createSurveyRound = useCreateSurveyRoundMutation();
+  const questionBankQuery = useQuestionBankQuery();
+  const [pickedKeys, setPickedKeys] = useState<string[]>([]);
   const [newRoundOpen, setNewRoundOpen] = useState(false);
   const [roundTitleEn, setRoundTitleEn] = useState("");
-  const [roundTitleAr, setRoundTitleAr] = useState("");
-  const [roundQuarter, setRoundQuarter] = useState("");
   const [roundOpensAt, setRoundOpensAt] = useState("");
   const [roundClosesAt, setRoundClosesAt] = useState("");
 
@@ -88,24 +93,29 @@ export default function AdminPanel() {
     );
   }
 
+  const bank = questionBankQuery.data ?? [];
+  const pickedScalesOk = (["autonomy", "competence", "relatedness"] as const).every((s) =>
+    bank.some((q) => q.scale === s && pickedKeys.includes(q.key)),
+  );
+  const toggleKey = (key: string) =>
+    setPickedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
   const openNewRound = () => {
     setRoundTitleEn("");
-    setRoundTitleAr("");
-    setRoundQuarter("");
     setRoundOpensAt(new Date().toISOString().slice(0, 10));
     setRoundClosesAt("");
+    setPickedKeys((questionBankQuery.data ?? []).filter((q) => q.isDefault).map((q) => q.key));
     setNewRoundOpen(true);
   };
 
   const submitNewRound = () => {
-    if (!roundTitleEn.trim() || !roundQuarter.trim() || !roundOpensAt) return;
+    if (!roundTitleEn.trim() || !roundOpensAt || !pickedScalesOk) return;
     createSurveyRound.mutate(
       {
         titleEn: roundTitleEn.trim(),
-        titleAr: roundTitleAr.trim() || undefined,
-        quarter: roundQuarter.trim(),
         opensAt: new Date(roundOpensAt).toISOString(),
         closesAt: roundClosesAt ? new Date(roundClosesAt).toISOString() : undefined,
+        questionKeys: pickedKeys,
       },
       {
         onSuccess: () => {
@@ -323,24 +333,14 @@ export default function AdminPanel() {
       </Tabs>
 
       <Dialog open={newRoundOpen} onOpenChange={setNewRoundOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("admin.newSurveyRound")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t("admin.surveyRoundTitleLabel")} (EN)</Label>
-                <Input value={roundTitleEn} onChange={(e) => setRoundTitleEn(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("admin.surveyRoundTitleLabel")} (AR)</Label>
-                <Input value={roundTitleAr} onChange={(e) => setRoundTitleAr(e.target.value)} dir="rtl" />
-              </div>
-            </div>
             <div className="space-y-1.5">
-              <Label>{t("admin.surveyQuarterLabel")}</Label>
-              <Input value={roundQuarter} onChange={(e) => setRoundQuarter(e.target.value)} placeholder="Q1" />
+              <Label>{t("admin.surveyRoundTitleLabel")}</Label>
+              <Input value={roundTitleEn} onChange={(e) => setRoundTitleEn(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -352,6 +352,43 @@ export default function AdminPanel() {
                 <Input type="date" value={roundClosesAt} onChange={(e) => setRoundClosesAt(e.target.value)} />
               </div>
             </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t("admin.surveyQuestionsLabel")}</Label>
+                <span className="text-xs text-muted-foreground">
+                  {t("admin.surveyQuestionsSelected", { n: formatNumber(pickedKeys.length, lang) })}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">{t("admin.surveyQuestionsHint")}</p>
+              <div className="max-h-64 space-y-3 overflow-y-auto rounded-md border p-3">
+                {(["autonomy", "competence", "relatedness"] as const).map((scale) => (
+                  <div key={scale} className="space-y-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t(`admin.surveyScale.${scale}`)}
+                    </p>
+                    {bank
+                      .filter((q) => q.scale === scale)
+                      .map((q) => (
+                        <label key={q.key} className="flex cursor-pointer items-start gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={pickedKeys.includes(q.key)}
+                            onChange={() => toggleKey(q.key)}
+                          />
+                          <span className="flex-1">{t2(q.text)}</span>
+                          <Badge variant="muted" className="shrink-0">
+                            {t(q.source === "wbns" ? "admin.surveySourceWbns" : "admin.surveySourcePulse")}
+                          </Badge>
+                        </label>
+                      ))}
+                  </div>
+                ))}
+              </div>
+              {!pickedScalesOk && (
+                <p className="text-xs text-destructive">{t("admin.surveyQuestionsNeedEach")}</p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewRoundOpen(false)}>
@@ -359,7 +396,7 @@ export default function AdminPanel() {
             </Button>
             <Button
               onClick={submitNewRound}
-              disabled={createSurveyRound.isPending || !roundTitleEn.trim() || !roundQuarter.trim() || !roundOpensAt}
+              disabled={createSurveyRound.isPending || !roundTitleEn.trim() || !roundOpensAt || !pickedScalesOk}
             >
               {t("admin.surveyCreateSubmit")}
             </Button>

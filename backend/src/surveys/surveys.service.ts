@@ -3,46 +3,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
 import { logAudit } from '../common/utils/audit.util';
 import { CreateSurveyRoundDto } from './dto/create-survey-round.dto';
+import { DEFAULT_QUESTION_KEYS, SURVEY_QUESTION_BANK } from './survey-question-bank';
 import { SubmitSurveyResponseDto } from './dto/submit-survey-response.dto';
 import type { ActiveSurveyDto, SdtScoresResultDto, SurveyRoundDto, SurveyRoundStatus } from './dto/survey.dto';
 
 const SURVEY_XP_BONUS = 20;
 /** Below this many respondents, averages aren't reported — same principle the original plan flagged as non-negotiable for survey anonymity. */
 const K_ANONYMITY_THRESHOLD = 5;
-
-/** No question-editor exists in the frontend, so every round gets this fixed SDT pulse set (2 items per sub-scale). */
-const STANDARD_QUESTIONS: { scale: 'autonomy' | 'competence' | 'relatedness'; textEn: string; textAr: string }[] = [
-  {
-    scale: 'autonomy',
-    textEn: 'I feel I have real input into decisions that affect my work.',
-    textAr: 'أشعر أن لي رأيًا حقيقيًا في القرارات التي تؤثر على عملي.',
-  },
-  {
-    scale: 'autonomy',
-    textEn: 'I can choose how I approach my day-to-day tasks.',
-    textAr: 'أستطيع اختيار كيفية تنفيذ مهامي اليومية.',
-  },
-  {
-    scale: 'competence',
-    textEn: 'I feel confident and effective in the work I do.',
-    textAr: 'أشعر بالثقة والفعالية في العمل الذي أقوم به.',
-  },
-  {
-    scale: 'competence',
-    textEn: 'I have opportunities to develop and use my skills.',
-    textAr: 'تتوفر لي فرص لتطوير مهاراتي واستخدامها.',
-  },
-  {
-    scale: 'relatedness',
-    textEn: 'I feel a sense of belonging with my colleagues.',
-    textAr: 'أشعر بانتماء حقيقي تجاه زملائي.',
-  },
-  {
-    scale: 'relatedness',
-    textEn: 'I feel supported by the people I work with.',
-    textAr: 'أشعر بالدعم من الأشخاص الذين أعمل معهم.',
-  },
-];
 
 const SCALE_LABEL: Record<string, { en: string; ar: string }> = {
   autonomy: { en: 'Autonomy', ar: 'الاستقلالية' },
@@ -73,7 +40,6 @@ export class SurveysService {
     return rounds.map((r) => ({
       id: r.id,
       title: { en: r.titleEn, ar: r.titleAr },
-      quarter: r.quarter,
       status: computeStatus(r.opensAt, r.closesAt, now),
       responses: r._count.responses,
       target: r.targetCount,
@@ -81,20 +47,40 @@ export class SurveysService {
     }));
   }
 
+  getQuestionBank() {
+    return SURVEY_QUESTION_BANK.map((q) => ({
+      key: q.key,
+      scale: q.scale,
+      source: q.source,
+      isDefault: !!q.isDefault,
+      text: { en: q.textEn, ar: q.textAr },
+    }));
+  }
+
   /** `targetCount` snapshots the current eligible-Employee headcount — it's not recomputed once the round exists. */
   async createRound(dto: CreateSurveyRoundDto, actorId: string): Promise<SurveyRoundDto> {
+    const keys = dto.questionKeys?.length ? [...new Set(dto.questionKeys)] : DEFAULT_QUESTION_KEYS;
+    const picked = keys.map((k) => SURVEY_QUESTION_BANK.find((q) => q.key === k));
+    if (picked.some((q) => !q)) throw new BadRequestException('Unknown survey question.');
+    const questions = picked as NonNullable<(typeof picked)[number]>[];
+    // Each SDT sub-scale needs at least one item, otherwise its average is meaningless.
+    for (const scale of ['autonomy', 'competence', 'relatedness'] as const) {
+      if (!questions.some((q) => q.scale === scale)) {
+        throw new BadRequestException(`Pick at least one ${scale} question.`);
+      }
+    }
+
     const targetCount = await this.prisma.user.count({ where: { role: 'employee', isActive: true } });
 
     const round = await this.prisma.surveyRound.create({
       data: {
         titleEn: dto.titleEn,
         titleAr: dto.titleAr || dto.titleEn,
-        quarter: dto.quarter,
         opensAt: new Date(dto.opensAt),
         closesAt: dto.closesAt ? new Date(dto.closesAt) : null,
         targetCount,
         questions: {
-          create: STANDARD_QUESTIONS.map((q, i) => ({
+          create: questions.map((q, i) => ({
             scale: q.scale,
             textEn: q.textEn,
             textAr: q.textAr,
@@ -109,13 +95,12 @@ export class SurveysService {
       action: 'survey.created',
       targetType: 'SurveyRound',
       targetId: round.id,
-      metadata: { titleEn: round.titleEn, quarter: round.quarter },
+      metadata: { titleEn: round.titleEn },
     });
 
     return {
       id: round.id,
       title: { en: round.titleEn, ar: round.titleAr },
-      quarter: round.quarter,
       status: computeStatus(round.opensAt, round.closesAt, new Date()),
       responses: 0,
       target: round.targetCount,
@@ -136,7 +121,6 @@ export class SurveysService {
       .map((r) => ({
         id: r.id,
         title: { en: r.titleEn, ar: r.titleAr },
-        quarter: r.quarter,
         questions: r.questions.map((q) => ({ id: q.id, scale: q.scale, text: { en: q.textEn, ar: q.textAr } })),
       }));
   }
@@ -160,8 +144,8 @@ export class SurveysService {
       throw new BadRequestException("Answers don't match this round's questions.");
     }
     for (const value of Object.values(dto.answers)) {
-      if (!Number.isInteger(value) || value < 1 || value > 7) {
-        throw new BadRequestException('Each answer must be an integer from 1 to 7.');
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new BadRequestException('Each answer must be an integer from 1 to 5.');
       }
     }
 

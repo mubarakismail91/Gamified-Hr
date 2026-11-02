@@ -16,6 +16,12 @@ export class SurveysController {
   }
 
   @Roles('admin')
+  @Get('question-bank')
+  getQuestionBank() {
+    return this.surveys.getQuestionBank();
+  }
+
+  @Roles('admin')
   @Post()
   createRound(@Body() dto: CreateSurveyRoundDto, @CurrentUser() user: AuthenticatedUser) {
     return this.surveys.createRound(dto, user.id);

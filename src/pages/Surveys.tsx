@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useActiveSurveysQuery, useSubmitSurveyResponseMutation } from "@/queries/useSurveys";
 import type { ActiveSurvey } from "@/api/surveyApi";
 
-const SCALE_VALUES = [1, 2, 3, 4, 5, 6, 7];
+const SCALE_VALUES = [1, 2, 3, 4, 5];
 
 export default function Surveys() {
   const { t } = useTranslation();

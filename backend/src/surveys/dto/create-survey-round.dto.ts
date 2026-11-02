@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateSurveyRoundDto {
   @IsString()
@@ -9,14 +9,17 @@ export class CreateSurveyRoundDto {
   @IsString()
   titleAr?: string;
 
-  @IsString()
-  @MinLength(1)
-  quarter!: string;
-
   @IsDateString()
   opensAt!: string;
 
   @IsOptional()
   @IsDateString()
   closesAt?: string;
+
+  /** Keys from the question bank; omitted = the default 6-item set. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  questionKeys?: string[];
 }

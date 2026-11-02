@@ -7,7 +7,6 @@ export type SdtScale = 'autonomy' | 'competence' | 'relatedness';
 export interface SurveyRoundDto {
   id: string;
   title: Bi;
-  quarter: string;
   status: SurveyRoundStatus;
   responses: number;
   target: number;
@@ -24,7 +23,6 @@ export interface SurveyQuestionDto {
 export interface ActiveSurveyDto {
   id: string;
   title: Bi;
-  quarter: string;
   questions: SurveyQuestionDto[];
 }
 

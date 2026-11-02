@@ -217,7 +217,6 @@ export interface LeaderboardRow {
 export interface SurveyRound {
   id: string;
   title: Bi;
-  quarter: string;
   status: "open" | "closed" | "scheduled";
   responses: number;
   target: number;
