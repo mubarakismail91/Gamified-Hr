@@ -51,7 +51,6 @@ export class SurveysService {
     return SURVEY_QUESTION_BANK.map((q) => ({
       key: q.key,
       scale: q.scale,
-      source: q.source,
       isDefault: !!q.isDefault,
       text: { en: q.textEn, ar: q.textAr },
     }));

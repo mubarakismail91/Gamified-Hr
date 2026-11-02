@@ -377,9 +377,6 @@ export default function AdminPanel() {
                             onChange={() => toggleKey(q.key)}
                           />
                           <span className="flex-1">{t2(q.text)}</span>
-                          <Badge variant="muted" className="shrink-0">
-                            {t(q.source === "wbns" ? "admin.surveySourceWbns" : "admin.surveySourcePulse")}
-                          </Badge>
                         </label>
                       ))}
                   </div>

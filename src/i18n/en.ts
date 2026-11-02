@@ -408,10 +408,8 @@ export const en = {
     surveyQuestionsLabel: "Questions",
     surveyQuestionsSelected: "{{n}} selected",
     surveyQuestionsHint:
-      "Choose from the SDT question bank. \"Validated scale\" items are adapted from the Basic Psychological Need Satisfaction at Work scale; \"Pulse\" items follow common pulse-survey wording. Answered 1–5.",
+      "Choose from the SDT question bank (autonomy, competence, relatedness). Answered 1–5.",
     surveyQuestionsNeedEach: "Pick at least one question for each of autonomy, competence, and relatedness.",
-    surveySourceWbns: "Validated scale",
-    surveySourcePulse: "Pulse",
     surveyScale: { autonomy: "Autonomy", competence: "Competence", relatedness: "Relatedness" },
     sdtScoresSuppressed: "Not enough responses yet to show averages (minimum 5, to protect anonymity).",
     auditWhen: "When",

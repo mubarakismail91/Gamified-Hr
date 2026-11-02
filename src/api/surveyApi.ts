@@ -37,7 +37,6 @@ export interface CreateSurveyRoundInput {
 export interface BankQuestion {
   key: string;
   scale: SdtScale;
-  source: "wbns" | "pulse";
   isDefault: boolean;
   text: Bi;
 }
