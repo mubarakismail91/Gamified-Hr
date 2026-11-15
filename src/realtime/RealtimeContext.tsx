@@ -4,7 +4,15 @@ import { io, type Socket } from "socket.io-client";
 import { getAccessToken } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+/**
+ * Where the live connection goes. When the API is reached through a same-site "/api" proxy
+ * (Vercel rewrite), WebSockets can't go through it, so VITE_SOCKET_URL points straight at the API
+ * host (the socket authenticates with the token, not the cookie). Behind Caddy everything is one
+ * origin, so the page's own origin is used.
+ */
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ?? (API_BASE.startsWith("http") ? API_BASE : window.location.origin);
 const RETRY_DELAY_MS = 3000;
 
 interface RealtimeValue {
@@ -45,7 +53,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let hasConnectedBefore = false;
 
-    const socket: Socket = io(BASE_URL, {
+    const socket: Socket = io(SOCKET_URL, {
       // A function, so every (re)connect sends the CURRENT token, not the one from sign-in.
       auth: (cb) => cb({ token: getAccessToken() }),
       transports: ["websocket"],

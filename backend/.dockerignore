@@ -1,0 +1,10 @@
+node_modules
+dist
+uploads
+backups
+coverage
+.env
+.env.*
+!.env.example
+loadtest/load.env
+loadtest/results/*.json

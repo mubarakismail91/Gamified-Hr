@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, U
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { attachmentFileOptions } from '../submissions/multer.config';
+import { sendStoredFile } from '../files/file-store';
+import { PrismaService } from '../prisma/prisma.service';
 import { QuestsService } from './quests.service';
 import { CreateQuestDto } from './dto/create-quest.dto';
 import { UpdateQuestDto } from './dto/update-quest.dto';
@@ -10,7 +12,10 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 
 @Controller('quests')
 export class QuestsController {
-  constructor(private quests: QuestsService) {}
+  constructor(
+    private quests: QuestsService,
+    private prisma: PrismaService,
+  ) {}
 
   // Every role can read — scoped per role inside the service (Employee sees
   // their visible catalog, Manager their own department, Admin everything).
@@ -67,6 +72,6 @@ export class QuestsController {
     @Res() res: Response,
   ) {
     const attachment = await this.quests.findDownloadableAttachment(id, attachmentId, user);
-    res.download(attachment.filePath, attachment.fileName);
+    await sendStoredFile(this.prisma, res, attachment.fileId, attachment.fileName);
   }
 }

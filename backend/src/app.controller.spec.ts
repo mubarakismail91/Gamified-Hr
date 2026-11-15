@@ -1,22 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import type { PrismaService } from './prisma/prisma.service';
 
-describe('AppController', () => {
-  let appController: AppController;
-
-  beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
-    }).compile();
-
-    appController = app.get<AppController>(AppController);
+describe('AppService health check', () => {
+  it('reports ok when the database answers', async () => {
+    const prisma = { $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) } as unknown as PrismaService;
+    expect(await new AppService(prisma).health()).toMatchObject({ status: 'ok', database: 'ok' });
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+  it('reports degraded when the database is unreachable', async () => {
+    const prisma = { $queryRaw: jest.fn().mockRejectedValue(new Error('connection refused')) } as unknown as PrismaService;
+    expect(await new AppService(prisma).health()).toMatchObject({ status: 'degraded', database: 'unreachable' });
   });
 });

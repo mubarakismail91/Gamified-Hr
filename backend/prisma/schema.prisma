@@ -248,7 +248,8 @@ model QuestAttachment {
   questId    String
   quest      Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
   fileName   String
-  filePath   String
+  fileId     String     @unique
+  file       StoredFile @relation("AttachmentFile", fields: [fileId], references: [id], onDelete: Cascade)
   fileType   String?
   fileSize   Int
   uploadedAt DateTime @default(now())
@@ -284,7 +285,8 @@ model QuestSubmission {
   employeeId   String
   employee     User              @relation(fields: [employeeId], references: [id])
   fileName     String?
-  filePath     String?
+  fileId       String?           @unique
+  file         StoredFile?       @relation("SubmissionFile", fields: [fileId], references: [id], onDelete: SetNull)
   fileType     String?
   fileSize     Int?
   notes        String?
@@ -601,5 +603,18 @@ model XpTransaction {
   createdAt      DateTime
 
   @@unique([userId, seq])
+}
+
+/// Uploaded file contents (item 12). Free hosting platforms wipe the server's disk on every restart,
+/// so files live in PostgreSQL instead: they survive redeploys and are part of every database backup.
+/// Kept in their own table so that listing submissions or quests never loads file contents.
+model StoredFile {
+  id         String           @id @default(cuid())
+  data       Bytes
+  mimeType   String
+  size       Int
+  createdAt  DateTime         @default(now())
+  submission QuestSubmission? @relation("SubmissionFile")
+  attachment QuestAttachment? @relation("AttachmentFile")
 }
 

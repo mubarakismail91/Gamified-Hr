@@ -1,17 +1,26 @@
+# Render Blueprint for the API (free plan). See DEPLOYMENT.md for the full walkthrough.
+# The database is Neon (free PostgreSQL that doesn't expire); the web app is on Vercel and reaches
+# this API through its /api rewrite, so the sign-in cookie stays first-party.
 services:
   - type: web
     name: iu-hr-api
     runtime: node
     rootDir: backend
     plan: free
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    region: frankfurt # closest Render region to Saudi Arabia
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/main
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Neon's DIRECT connection string (host without "-pooler"): live notifications use
+      # LISTEN/NOTIFY, which doesn't work through a transaction pooler. Add ?sslmode=require.
       - key: DATABASE_URL
         sync: false
+      # The Vercel URL of the web app, e.g. https://iu-gamified-hr.vercel.app
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -25,3 +34,17 @@ services:
       # Set by hand and shared only with the research team; never regenerate during a study.
       - key: RESEARCH_KEY
         sync: false
+      # The browser reaches the API as https://<vercel-app>/api/..., so the cookie path is /api/auth
+      # and it is a same-site cookie.
+      - key: COOKIE_PATH
+        value: /api/auth
+      - key: COOKIE_SAME_SITE
+        value: lax
+      # Vercel's rewrite + Render's own proxy sit in front of the API.
+      - key: TRUST_PROXY_HOPS
+        value: "2"
+      - key: BCRYPT_ROUNDS
+        value: "10"
+      # Neon's free compute allows few connections; 5 is plenty for a pilot.
+      - key: DB_POOL_SIZE
+        value: "5"

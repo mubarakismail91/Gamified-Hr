@@ -20,3 +20,5 @@ backend/uploads
 backend/backups
 backend/loadtest/load.env
 backend/loadtest/results/*.json
+deploy/.env
+/backups

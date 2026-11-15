@@ -2,12 +2,12 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { randomBytes } from 'crypto';
-import { unlink } from 'fs/promises';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { logAudit } from '../common/utils/audit.util';
 import { getResearchKey, researchCode, CONSENT_VERSION } from '../research/research-code';
 import { retentionPolicy } from './retention-config';
+import { deleteStoredFiles } from '../files/file-store';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ERASED_NAME = { en: 'Former staff member', ar: 'موظف سابق' };
@@ -144,7 +144,6 @@ export class PrivacyService {
     if (user.erasedAt) throw new BadRequestException('This account has already been erased.');
     if (actorId === userId) throw new BadRequestException("You can't erase your own account.");
 
-    const files = await this.prisma.questSubmission.findMany({ where: { employeeId: userId, filePath: { not: null } }, select: { filePath: true } });
     const key = getResearchKey(this.config);
     const unusableHash = await bcrypt.hash(randomBytes(32).toString('hex'), 4);
 
@@ -178,15 +177,16 @@ export class PrivacyService {
       const removed = { messageEn: '[removed]', messageAr: '[حُذف]' };
       await tx.kudo.updateMany({ where: { fromUserId: userId }, data: removed });
       await tx.kudo.updateMany({ where: { toUserId: userId }, data: removed });
+      const files = await tx.questSubmission.findMany({ where: { employeeId: userId, fileId: { not: null } }, select: { fileId: true } });
       await tx.questSubmission.updateMany({
         where: { employeeId: userId },
-        data: { notes: null, fileName: null, filePath: null, fileType: null, fileSize: null },
+        data: { notes: null, fileName: null, fileId: null, fileType: null, fileSize: null },
       });
+      await deleteStoredFiles(tx, files.map((f) => f.fileId));
       // Audit entries stay (they're the record of what happened) but lose personal details in their metadata.
       await tx.$executeRaw`UPDATE "AuditLog" SET "metadata" = "metadata" - 'email' - 'reason' WHERE "targetId" = ${userId} AND "metadata" IS NOT NULL`;
     });
 
-    for (const f of files) await unlink(f.filePath as string).catch(() => undefined);
 
     await logAudit(this.prisma, { actorId, action: 'user.erased', targetType: 'User', targetId: userId });
     return { erased: true };

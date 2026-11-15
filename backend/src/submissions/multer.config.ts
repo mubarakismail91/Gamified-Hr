@@ -1,12 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import { diskStorage, type Options } from 'multer';
-import { randomBytes } from 'crypto';
-import { extname, resolve } from 'path';
+import { memoryStorage, type Options } from 'multer';
+import { extname } from 'path';
 
 // Decorator arguments are evaluated at module-load time (before Nest's DI
 // container exists), so this reads process.env directly rather than going
 // through ConfigService — same constraint Multer options always have in Nest.
-export const UPLOAD_DIR = resolve(process.env.UPLOAD_DIR ?? './uploads');
 const MAX_UPLOAD_SIZE_MB = Number(process.env.MAX_UPLOAD_SIZE_MB ?? 10);
 
 // Matches the frontend's ALLOWED_EXTENSIONS in SubmitWorkDialog.tsx exactly —
@@ -18,13 +16,8 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 export const submissionFileOptions: Options = {
-  storage: diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (_req, file, cb) => {
-      const unique = randomBytes(16).toString('hex');
-      cb(null, `${unique}${extname(file.originalname)}`);
-    },
-  }),
+  // Kept in memory, then saved to PostgreSQL (StoredFile): free hosts wipe the disk on restart.
+  storage: memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_SIZE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_EXTENSIONS.has(extname(file.originalname).toLowerCase())) {

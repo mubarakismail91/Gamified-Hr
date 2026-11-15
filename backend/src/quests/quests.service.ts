@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { unlink } from 'fs/promises';
+import { deleteStoredFiles, storeUpload, uploadedFileName } from '../files/file-store';
 import type { Quest } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestDto } from './dto/create-quest.dto';
@@ -200,27 +200,19 @@ export class QuestsService {
 
   async addAttachment(id: string, file: Express.Multer.File | undefined, actor: AuthenticatedUser): Promise<QuestDto> {
     if (!file) throw new BadRequestException('No file uploaded.');
-    try {
-      await this.findOwnedOrThrow(id, actor);
-    } catch (err) {
-      await unlink(file.path).catch(() => undefined); // don't leave orphaned uploads behind
-      throw err;
-    }
-    await this.prisma.questAttachment.create({
-      data: {
-        questId: id,
-        fileName: file.originalname,
-        filePath: file.path,
-        fileType: file.mimetype,
-        fileSize: file.size,
-      },
+    await this.findOwnedOrThrow(id, actor);
+    await this.prisma.$transaction(async (tx) => {
+      const fileId = await storeUpload(tx, file);
+      await tx.questAttachment.create({
+        data: { questId: id, fileName: uploadedFileName(file), fileId, fileType: file.mimetype, fileSize: file.size },
+      });
     });
     await logAudit(this.prisma, {
       actorId: actor.id,
       action: 'quest.updated',
       targetType: 'Quest',
       targetId: id,
-      metadata: { attached: file.originalname },
+      metadata: { attached: uploadedFileName(file) },
     });
     return this.findOneDto(id);
   }
@@ -229,8 +221,8 @@ export class QuestsService {
     await this.findOwnedOrThrow(id, actor);
     const attachment = await this.prisma.questAttachment.findUnique({ where: { id: attachmentId } });
     if (!attachment || attachment.questId !== id) throw new NotFoundException('Attachment not found.');
-    await this.prisma.questAttachment.delete({ where: { id: attachmentId } });
-    await unlink(attachment.filePath).catch(() => undefined);
+    // Deleting the stored file cascades to the attachment row.
+    await this.prisma.storedFile.delete({ where: { id: attachment.fileId } });
     return this.findOneDto(id);
   }
 
@@ -280,7 +272,11 @@ export class QuestsService {
       await this.prisma.questAssignment.findMany({ where: { questId: existing.id }, select: { id: true } })
     ).map((a) => a.id);
 
-    const attachments = await this.prisma.questAttachment.findMany({ where: { questId: existing.id } });
+    const attachments = await this.prisma.questAttachment.findMany({ where: { questId: existing.id }, select: { fileId: true } });
+    const submissionFiles = await this.prisma.questSubmission.findMany({
+      where: { assignmentId: { in: assignmentIds }, fileId: { not: null } },
+      select: { fileId: true },
+    });
 
     await this.prisma.$transaction([
       this.prisma.questSubmission.deleteMany({ where: { assignmentId: { in: assignmentIds } } }),
@@ -288,7 +284,7 @@ export class QuestsService {
       this.prisma.quest.delete({ where: { id: existing.id } }),
     ]);
 
-    await Promise.all(attachments.map((a) => unlink(a.filePath).catch(() => undefined)));
+    await deleteStoredFiles(this.prisma, [...attachments, ...submissionFiles].map((f) => f.fileId));
 
     await logAudit(this.prisma, {
       actorId: actor.id,

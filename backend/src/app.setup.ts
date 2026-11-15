@@ -23,10 +23,11 @@ export function configureApp(app: INestApplication): void {
     exposedHeaders: ['Content-Disposition', 'Retry-After'],
   });
 
-  // Behind the hosting provider's proxy, the client IP (used for rate limiting) is in X-Forwarded-For.
-  if (process.env.NODE_ENV === 'production') {
-    (app as NestExpressApplication).set('trust proxy', 1);
-  }
+  // Behind proxies, the client IP (used for rate limiting) is in X-Forwarded-For. TRUST_PROXY_HOPS =
+  // how many proxies sit in front of the API: 1 for Render or Caddy alone, 2 for Vercel's /api
+  // rewrite in front of Render. Too few and every user shares the proxy's IP (and rate limit).
+  const hops = Number(process.env.TRUST_PROXY_HOPS ?? (process.env.NODE_ENV === 'production' ? 1 : 0));
+  if (hops > 0) (app as NestExpressApplication).set('trust proxy', hops);
 
   // Security headers. The API only serves JSON and file downloads, so the strictest CSP is fine;
   // cross-origin resource policy is relaxed so the frontend (another origin) can fetch downloads.
