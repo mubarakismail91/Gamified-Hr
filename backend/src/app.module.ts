@@ -21,6 +21,7 @@ import { ActivityModule } from './activity/activity.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { ResearchModule } from './research/research.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -46,6 +47,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     ProfilesModule,
     SurveysModule,
     ResearchModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [
