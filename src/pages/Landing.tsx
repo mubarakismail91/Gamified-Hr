@@ -164,7 +164,6 @@ export default function Landing() {
 
       <footer className="border-t bg-background">
         <div className="container py-5 text-center text-xs text-muted-foreground">
-          {t("landing.footerNote")}{" "}
           <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
             {t("privacy.title")}
           </Link>

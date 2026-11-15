@@ -82,8 +82,6 @@ export const en = {
     pillar2Body: "See your skills grow through a clear competence map and meaningful badges.",
     pillar3Title: "Relatedness",
     pillar3Body: "Recognise colleagues with Kudos and celebrate team achievements together.",
-    footerNote:
-      "This is a Phase 1 interface preview. Data shown is illustrative and not connected to university systems.",
   },
   dashboard: {
     welcome: "Welcome back, {{name}}",
