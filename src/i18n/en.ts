@@ -250,6 +250,51 @@ export const en = {
     submittedToast: "Thanks for your feedback!",
     incompleteWarning: "Please answer every question before submitting.",
   },
+  research: {
+    cardTitle: "Research study (optional)",
+    invite:
+      "The university is studying how this programme affects motivation. You can choose to link your future survey answers to your activity here, under a research code instead of your name.",
+    readAndJoin: "Read more and join",
+    joinedBadge: "Taking part",
+    joinedOn: "You joined on",
+    joinedExplain:
+      "Your future survey answers are also stored under your research code, linked to your activity (XP, quests, Kudos, badges). You can leave at any time.",
+    leave: "Leave the study",
+    consentTitle: "Joining the research study",
+    point: {
+      purpose: "The study looks at how quests, Kudos and badges relate to feelings of autonomy, competence and belonging at work.",
+      linked:
+        "If you join, each pulse survey you answer from now on is also stored under your research code, together with your activity: XP, quests, Kudos, badges and active days.",
+      pseudonym:
+        "The research code replaces your name. Only the research team holds the key that links codes to people. The data is pseudonymised, not anonymous, and is treated as personal data under the PDPL.",
+      notBackdated: "Answers you gave before joining stay fully anonymous and can never be linked to you.",
+      withdraw: "You can leave at any time on this page. Leaving deletes every answer linked to your code.",
+      noEffect:
+        "Taking part is voluntary and earns no points. It has no effect on your evaluation, pay, promotion or any employment decision.",
+      retention: "Linked data is kept only for the study and deleted when the analysis ends.",
+    },
+    version: "Consent text version {{version}}",
+    agree: "I agree to take part",
+    joinedToast: "Thank you for joining the study.",
+    leaveTitle: "Leave the research study?",
+    leaveExplain:
+      "Every survey answer linked to your research code will be deleted. Your anonymous survey answers are not affected. You can join again later.",
+    leaveConfirm: "Leave and delete my linked answers",
+    leftToast: "You have left the study and your linked answers were deleted.",
+    surveyNote:
+      "You are taking part in the research study, so a copy of these answers will also be stored under your research code (not your name).",
+    exportsTitle: "Research exports",
+    participantsCount: "{{n}} staff have joined the research study.",
+    notConfigured: "The research study is not set up on the server (RESEARCH_KEY is missing), so only anonymous aggregates can be exported.",
+    aggregatesTitle: "Anonymous survey aggregates",
+    aggregatesDesc: "Every round's SDT averages, overall and by generation and job role. Groups under 5 are hidden, exactly as on screen.",
+    participantsTitle: "Research-track participants (pseudonymised)",
+    participantsDesc:
+      "One row per participant and round: research code, generation, job role, activity and survey scores. No names, emails or departments. This is personal data: store and share it only as the study protocol allows.",
+    downloadCsv: "Download CSV",
+    exportFailed: "The export could not be downloaded.",
+    auditNote: "Every download is recorded in the audit trail.",
+  },
   profile: {
     title: "Profile",
     memberSince: "Member since {{date}}",

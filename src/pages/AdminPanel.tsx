@@ -45,6 +45,7 @@ import {
 import { QuestManager } from "@/components/admin/QuestManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { DemographicsPanel } from "@/components/admin/DemographicsPanel";
+import { ResearchExportCard } from "@/components/admin/ResearchExportCard";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
@@ -284,6 +285,7 @@ export default function AdminPanel() {
               );
             })}
           </div>
+          <ResearchExportCard />
         </TabsContent>
 
         {/* Audit trail */}

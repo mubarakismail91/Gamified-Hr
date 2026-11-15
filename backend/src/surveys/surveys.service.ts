@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { getResearchKey, researchCode } from '../research/research-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { logAudit } from '../common/utils/audit.util';
 import { CreateSurveyRoundDto } from './dto/create-survey-round.dto';
@@ -27,7 +29,10 @@ export function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): 
 
 @Injectable()
 export class SurveysService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
 
   async findAllRounds(): Promise<SurveyRoundDto[]> {
     const rounds = await this.prisma.surveyRound.findMany({
@@ -153,6 +158,11 @@ export class SurveysService {
       select: { generation: true, staffType: true },
     });
 
+    // Research track (Track B): if this employee has consented, ALSO store a copy under their research
+    // code (never their user id). The anonymous copy above is stored either way.
+    const key = getResearchKey(this.config);
+    const consented = key ? await this.prisma.researchConsent.findUnique({ where: { userId } }) : null;
+
     await this.prisma.$transaction([
       this.prisma.surveyResponse.create({
         data: {
@@ -163,6 +173,9 @@ export class SurveysService {
         },
       }),
       this.prisma.surveyParticipation.create({ data: { roundId, userId } }),
+      ...(key && consented
+        ? [this.prisma.researchResponse.create({ data: { code: researchCode(key, userId), roundId, answers: dto.answers } })]
+        : []),
     ]);
   }
 

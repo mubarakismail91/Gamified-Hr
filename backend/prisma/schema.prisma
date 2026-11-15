@@ -152,6 +152,7 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   createdQuests       Quest[]           @relation("QuestCreator")
+  researchConsent     ResearchConsent?
   assignments         QuestAssignment[] @relation("Assignee")
   reviewedAssignments QuestAssignment[] @relation("Reviewer")
   submissions         QuestSubmission[]
@@ -393,6 +394,7 @@ model SurveyRound {
   questions     SurveyQuestion[]
   responses     SurveyResponse[]
   participation SurveyParticipation[]
+  researchResponses ResearchResponse[]
 }
 
 model SurveyQuestion {
@@ -453,3 +455,27 @@ model Skill {
   col           Int
   row           Int
 }
+
+/// Research track (Track B, report Section 4.4.7): an employee's opt-in consent. Deleting the row = withdrawn.
+/// Only answers given while consent exists are linked; earlier anonymous answers can never be linked.
+model ResearchConsent {
+  userId         String   @id
+  user           User     @relation(fields: [userId], references: [id])
+  consentVersion String   // which version of the consent text they agreed to
+  consentedAt    DateTime @default(now())
+}
+
+/// A consenting participant's survey answers, stored under their research code (a keyed hash of the
+/// user id, made with RESEARCH_KEY, which is never stored in the database). There is no user id here,
+/// so the database alone can't map a code back to a person; the research team can, with the key.
+model ResearchResponse {
+  id      String      @id @default(uuid())
+  code    String
+  roundId String
+  round   SurveyRound @relation(fields: [roundId], references: [id])
+  answers Json
+
+  @@unique([code, roundId])
+  @@index([code])
+}
+

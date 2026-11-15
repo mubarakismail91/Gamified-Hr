@@ -6,6 +6,15 @@ import * as cookieParser from 'cookie-parser';
  * so the tests exercise exactly the same validation and cookie handling.
  */
 export function configureApp(app: INestApplication): void {
+  // credentials: true lets the browser send/receive the httpOnly refresh cookie cross-origin
+  // (frontend on :5173, API on :4000 in dev). Content-Disposition is exposed so the frontend can
+  // read the file name of a download (research exports, submission files).
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+    credentials: true,
+    exposedHeaders: ['Content-Disposition'],
+  });
+
   // Refresh tokens live in an httpOnly cookie — needs the parser wired up
   // before any route reads req.cookies.
   app.use(cookieParser());

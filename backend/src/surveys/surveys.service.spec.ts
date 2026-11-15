@@ -1,7 +1,9 @@
+import type { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { computeStatus, K_ANONYMITY_THRESHOLD, SurveysService } from './surveys.service';
 import type { PrismaService } from '../prisma/prisma.service';
 
+const noResearchKey = { get: () => undefined } as unknown as ConfigService;
 const NOW = new Date('2026-11-15T12:00:00Z');
 const daysFromNow = (d: number) => new Date(NOW.getTime() + d * 24 * 60 * 60 * 1000);
 
@@ -49,7 +51,7 @@ describe('SurveysService.getScores (k-anonymity)', () => {
   it('reports nothing when there is no round', async () => {
     const prisma = fakePrisma();
     prisma.surveyRound.findFirst.mockResolvedValue(null);
-    const result = await new SurveysService(prisma as unknown as PrismaService).getScores();
+    const result = await new SurveysService(prisma as unknown as PrismaService, noResearchKey).getScores();
     expect(result).toEqual({ scores: [], respondentCount: 0, suppressed: true });
   });
 
@@ -58,7 +60,7 @@ describe('SurveysService.getScores (k-anonymity)', () => {
     prisma.surveyRound.findUnique.mockResolvedValue({ id: 'r1' });
     prisma.surveyResponse.findMany.mockResolvedValue([response(5, 5, 5), response(1, 1, 1), response(3, 3, 3), response(4, 4, 4)]);
 
-    const result = await new SurveysService(prisma as unknown as PrismaService).getScores('r1');
+    const result = await new SurveysService(prisma as unknown as PrismaService, noResearchKey).getScores('r1');
 
     expect(result).toEqual({ scores: [], respondentCount: 4, suppressed: true });
   });
@@ -74,7 +76,7 @@ describe('SurveysService.getScores (k-anonymity)', () => {
       response(5, 4, 5),
     ]);
 
-    const result = await new SurveysService(prisma as unknown as PrismaService).getScores('r1');
+    const result = await new SurveysService(prisma as unknown as PrismaService, noResearchKey).getScores('r1');
 
     expect(result.suppressed).toBe(false);
     expect(result.respondentCount).toBe(5);
@@ -92,7 +94,7 @@ describe('SurveysService.getScores (k-anonymity)', () => {
       Array.from({ length: 5 }, () => ({ answers: { 'q-a': 2, 'q-c': 2, 'q-r': 2, 'q-unknown': 5 } })),
     );
 
-    const result = await new SurveysService(prisma as unknown as PrismaService).getScores('r1');
+    const result = await new SurveysService(prisma as unknown as PrismaService, noResearchKey).getScores('r1');
 
     expect(result.scores.every((s) => s.score === 2)).toBe(true);
   });
@@ -111,7 +113,7 @@ describe('SurveysService.submitResponse', () => {
     const prisma = fakePrisma();
     prisma.surveyRound.findUnique.mockResolvedValue(openRound);
 
-    await new SurveysService(prisma as unknown as PrismaService).submitResponse('r1', goodAnswers, 'e1');
+    await new SurveysService(prisma as unknown as PrismaService, noResearchKey).submitResponse('r1', goodAnswers, 'e1');
 
     const responseData = prisma.surveyResponse.create.mock.calls[0][0].data;
     expect(responseData).toEqual({ roundId: 'r1', answers: goodAnswers.answers, generation: null, staffType: null });
@@ -124,7 +126,7 @@ describe('SurveysService.submitResponse', () => {
     const prisma = fakePrisma();
     prisma.surveyRound.findUnique.mockResolvedValue({ ...openRound, closesAt: new Date(Date.now() - 1000) });
     await expect(
-      new SurveysService(prisma as unknown as PrismaService).submitResponse('r1', goodAnswers, 'e1'),
+      new SurveysService(prisma as unknown as PrismaService, noResearchKey).submitResponse('r1', goodAnswers, 'e1'),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -133,7 +135,7 @@ describe('SurveysService.submitResponse', () => {
     prisma.surveyRound.findUnique.mockResolvedValue(openRound);
     prisma.surveyParticipation.findUnique.mockResolvedValue({ roundId: 'r1', userId: 'e1' });
     await expect(
-      new SurveysService(prisma as unknown as PrismaService).submitResponse('r1', goodAnswers, 'e1'),
+      new SurveysService(prisma as unknown as PrismaService, noResearchKey).submitResponse('r1', goodAnswers, 'e1'),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -147,7 +149,7 @@ describe('SurveysService.submitResponse', () => {
     const prisma = fakePrisma();
     prisma.surveyRound.findUnique.mockResolvedValue(openRound);
     await expect(
-      new SurveysService(prisma as unknown as PrismaService).submitResponse('r1', { answers }, 'e1'),
+      new SurveysService(prisma as unknown as PrismaService, noResearchKey).submitResponse('r1', { answers }, 'e1'),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -159,7 +161,7 @@ describe('SurveysService.createRound', () => {
   it('requires at least one question for each SDT need', async () => {
     const prisma = fakePrisma();
     await expect(
-      new SurveysService(prisma as unknown as PrismaService).createRound(
+      new SurveysService(prisma as unknown as PrismaService, noResearchKey).createRound(
         { ...base, questionKeys: ['aut-input', 'com-effective'] },
         'admin',
       ),
@@ -169,7 +171,7 @@ describe('SurveysService.createRound', () => {
   it('rejects a question key that is not in the bank', async () => {
     const prisma = fakePrisma();
     await expect(
-      new SurveysService(prisma as unknown as PrismaService).createRound(
+      new SurveysService(prisma as unknown as PrismaService, noResearchKey).createRound(
         { ...base, questionKeys: ['aut-input', 'com-effective', 'rel-belong', 'made-up'] },
         'admin',
       ),
@@ -180,7 +182,7 @@ describe('SurveysService.createRound', () => {
     const prisma = fakePrisma();
     prisma.surveyRound.create.mockResolvedValue({ id: 'r1', titleEn: 'Pulse', titleAr: 'Pulse', opensAt: new Date(), closesAt: null, targetCount: 10 });
 
-    await new SurveysService(prisma as unknown as PrismaService).createRound(base, 'admin');
+    await new SurveysService(prisma as unknown as PrismaService, noResearchKey).createRound(base, 'admin');
 
     const created = prisma.surveyRound.create.mock.calls[0][0].data.questions.create;
     expect(created).toHaveLength(6);

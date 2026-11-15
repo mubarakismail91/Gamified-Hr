@@ -10,6 +10,8 @@ import { useLocale } from "@/hooks/useLocale";
 import { cn } from "@/lib/utils";
 import { useActiveSurveysQuery, useSubmitSurveyResponseMutation } from "@/queries/useSurveys";
 import type { ActiveSurvey } from "@/api/surveyApi";
+import { ResearchConsentCard } from "@/components/surveys/ResearchConsentCard";
+import { useMyResearchConsentQuery } from "@/queries/useResearch";
 
 const SCALE_VALUES = [1, 2, 3, 4, 5];
 
@@ -19,6 +21,8 @@ export default function Surveys() {
   const activeQuery = useActiveSurveysQuery();
   const submitResponse = useSubmitSurveyResponseMutation();
   const rounds = activeQuery.data ?? [];
+  // Research-track participants get a coded copy of their answers, so "anonymous" alone isn't the whole story.
+  const inStudy = useMyResearchConsentQuery().data?.consented ?? false;
 
   const [active, setActive] = useState<ActiveSurvey | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -50,6 +54,9 @@ export default function Surveys() {
     return (
       <div className="space-y-6">
         <PageHeader title={t2(active.title)} subtitle={t("surveys.anonymousNote")} />
+        {inStudy && (
+          <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{t("research.surveyNote")}</p>
+        )}
 
         <div className="space-y-4">
           {active.questions.map((q) => (
@@ -118,6 +125,8 @@ export default function Surveys() {
           ))}
         </div>
       )}
+
+      <ResearchConsentCard />
     </div>
   );
 }

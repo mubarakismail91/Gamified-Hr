@@ -49,6 +49,14 @@ function actionLabel(action: string, metadata: unknown): Bi {
         ? { en: `Awarded badge: ${badgeName}`, ar: `منح وسام: ${badgeName}` }
         : { en: 'Awarded badge', ar: 'منح وسامًا' };
     }
+    case 'research.consentGiven':
+      return { en: 'Joined the research track', ar: 'انضم إلى مسار البحث' };
+    case 'research.consentWithdrawn':
+      return { en: 'Left the research track', ar: 'انسحب من مسار البحث' };
+    case 'research.exported':
+      return meta.dataset === 'participants'
+        ? { en: 'Exported research-track data (pseudonymised)', ar: 'صدّر بيانات مسار البحث (بأسماء مستعارة)' }
+        : { en: 'Exported anonymous survey aggregates', ar: 'صدّر الملخصات المجهولة للاستبانات' };
     default:
       return { en: action, ar: action };
   }
