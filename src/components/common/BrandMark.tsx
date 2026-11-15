@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 /**
- * IU emblem + bilingual wordmark. The SVG in /public/iu-mark.svg is a neutral
- * placeholder — swap it for the official university crest before launch.
+ * IU emblem + bilingual wordmark. /public/iu-mark.svg is the university emblem used across the
+ * app (it replaced the original placeholder); confirm usage rights before a public launch.
  */
 export function BrandMark({
   className,

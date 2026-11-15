@@ -1,11 +1,7 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import type { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { initialsFrom, pickAvatarTone, generateStaffId } from '../src/common/utils/identity.util';
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+import { runScript } from './prisma-client';
 
 /**
  * Bootstraps the very first Admin account — there is no signup page, so this
@@ -14,7 +10,8 @@ const prisma = new PrismaClient({ adapter });
  *
  * Usage: npm run seed:admin   (reads SEED_ADMIN_* from backend/.env)
  */
-async function main() {
+/** Creates the first Admin from SEED_ADMIN_* (no-op if that email exists). Returns the email, or null if it existed. */
+export async function seedAdmin(prisma: PrismaClient): Promise<string | null> {
   const email = process.env.SEED_ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
   const nameEn = process.env.SEED_ADMIN_NAME_EN ?? 'System Administrator';
@@ -26,8 +23,7 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    console.log(`Admin account already exists for ${email} — nothing to do.`);
-    return;
+    return null;
   }
 
   const userCount = await prisma.user.count();
@@ -53,16 +49,13 @@ async function main() {
     },
   });
 
-  console.log('Seeded first Admin account:');
-  console.log(`  email:    ${admin.email}`);
-  console.log(`  password: ${password}  (from .env — change it after first login)`);
+  return admin.email;
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+// `npm run seed:admin`
+if (require.main === module) {
+  runScript(async (prisma) => {
+    const email = await seedAdmin(prisma);
+    console.log(email ? `Seeded first Admin account: ${email} (password from SEED_ADMIN_PASSWORD in .env)` : 'Admin account already exists — nothing to do.');
   });
+}

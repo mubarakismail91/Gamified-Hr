@@ -23,7 +23,9 @@
     "db:studio": "prisma studio",
     "seed:admin": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "seed:badges": "ts-node -r tsconfig-paths/register prisma/seed-badges.ts",
-    "seed:skills": "ts-node -r tsconfig-paths/register prisma/seed-skills.ts"
+    "seed:skills": "ts-node -r tsconfig-paths/register prisma/seed-skills.ts",
+    "db:backup": "ts-node -r tsconfig-paths/register prisma/backup.ts",
+    "db:reset": "ts-node -r tsconfig-paths/register prisma/reset.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.22",
