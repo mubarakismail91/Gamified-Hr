@@ -30,10 +30,10 @@ export class UsersService {
       if (!dept) throw new ForbiddenException("You don't manage a department.");
       departmentId = dept.id;
     }
-    return this.findAll(departmentId);
+    return this.findAll(departmentId, viewer.role === 'admin');
   }
 
-  private async findAll(departmentId?: string): Promise<StaffMemberDto[]> {
+  private async findAll(departmentId: string | undefined, includeDemographics: boolean): Promise<StaffMemberDto[]> {
     // Deactivated (soft-deleted) users are excluded here, same as the demo's
     // hard-delete made them disappear from this list — their row and history
     // still exist in the DB (and will surface in the Phase F audit trail),
@@ -54,7 +54,11 @@ export class UsersService {
 
     // Zeroed period stats here — the Users table doesn't render them, and
     // computing per row would be an N+1 aggregate query for no visible gain.
-    return users.map((u) => toStaffMemberDto(u, u.department, ZERO_PERIOD_STATS, badgesByUser.get(u.id) ?? []));
+    return users.map((u) => {
+      const dto = toStaffMemberDto(u, u.department, ZERO_PERIOD_STATS, badgesByUser.get(u.id) ?? []);
+      // Demographics are for the Admin's user management only — a Manager's team roster never gets them.
+      return includeDemographics ? { ...dto, generation: u.generation, staffType: u.staffType } : dto;
+    });
   }
 
   async create(dto: CreateUserDto, actorId: string): Promise<{ user: StaffMemberDto; temporaryPassword: string }> {
@@ -78,6 +82,8 @@ export class UsersService {
         passwordHash,
         role: dto.role,
         gender: dto.gender ?? 'male',
+        generation: dto.generation ?? null,
+        staffType: dto.staffType ?? null,
         departmentId: dto.departmentId ?? null,
         avatarTone: pickAvatarTone(userCount),
         totalXp: startingXp,
@@ -108,7 +114,7 @@ export class UsersService {
       metadata: { email: user.email, role: user.role },
     });
 
-    return { user: await buildStaffMemberDto(this.prisma, user.id, { includePeriodStats: false }), temporaryPassword };
+    return { user: await this.adminView(user.id), temporaryPassword };
   }
 
   async update(id: string, dto: UpdateUserDto, actorId: string): Promise<StaffMemberDto> {
@@ -131,6 +137,8 @@ export class UsersService {
         titleAr: dto.titleEn,
         role: dto.role,
         gender: dto.gender,
+        generation: dto.generation,
+        staffType: dto.staffType,
         isActive: dto.isActive,
         departmentId: dto.departmentId !== undefined ? dto.departmentId : undefined,
       },
@@ -145,7 +153,7 @@ export class UsersService {
     await syncManagerRoles(this.prisma);
     await logAudit(this.prisma, { actorId, action: 'user.updated', targetType: 'User', targetId: id });
 
-    return buildStaffMemberDto(this.prisma, id, { includePeriodStats: false });
+    return this.adminView(id);
   }
 
   /** Soft delete — sets isActive: false rather than removing the row, to preserve audit/history (per the spec). */
@@ -237,5 +245,14 @@ export class UsersService {
     });
 
     return { user: await buildStaffMemberDto(this.prisma, id, { includePeriodStats: false }), temporaryPassword };
+  }
+
+  /** The user as the Admin's user management sees them: the normal profile plus the optional demographic fields. */
+  private async adminView(id: string): Promise<StaffMemberDto> {
+    const [dto, row] = await Promise.all([
+      buildStaffMemberDto(this.prisma, id, { includePeriodStats: false }),
+      this.prisma.user.findUniqueOrThrow({ where: { id }, select: { generation: true, staffType: true } }),
+    ]);
+    return { ...dto, generation: row.generation, staffType: row.staffType };
   }
 }

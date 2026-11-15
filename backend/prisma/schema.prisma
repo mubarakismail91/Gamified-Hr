@@ -19,6 +19,23 @@ enum Gender {
   female
 }
 
+/// Generation group only (Pew boundaries) — a birth year is never stored (data minimisation).
+/// null on a User = not recorded yet; `undisclosed` = the person chose not to say.
+enum Generation {
+  gen_z       // born 1997–2012
+  millennial  // born 1981–1996
+  gen_x       // born 1965–1980
+  boomer      // born 1946–1964
+  undisclosed
+}
+
+/// Academic (faculty) or administrative staff. Same null/undisclosed convention as Generation.
+enum StaffType {
+  academic
+  administrative
+  undisclosed
+}
+
 enum QuestCadence {
   daily
   epic
@@ -115,6 +132,8 @@ model User {
   passwordHash       String
   role               Role
   gender             Gender
+  generation         Generation? // optional demographic, admin-only; see enum
+  staffType          StaffType?  // optional demographic, admin-only; see enum
   departmentId       String?   // null = university-wide (Admin only)
   department         Department? @relation("DepartmentMembers", fields: [departmentId], references: [id])
   managesDepartment  Department? @relation("DepartmentManager")
@@ -392,12 +411,17 @@ model SurveyQuestion {
  * reminders / the participation XP) is tracked separately in
  * SurveyParticipation, which never touches this table.
  */
+/// Anonymous by construction: no user reference, no timestamp, and a random (not time-ordered)
+/// id, so a response can't be matched to a SurveyParticipation row by time or by insertion order.
+/// The coarse group tags are copied from the respondent when they submit, with `undisclosed`
+/// and "not recorded" both stored as null. Group results are only shown for groups of 5 or more.
 model SurveyResponse {
-  id          String      @id @default(cuid())
-  roundId     String
-  round       SurveyRound @relation(fields: [roundId], references: [id])
-  answers     Json
-  submittedAt DateTime    @default(now())
+  id         String      @id @default(uuid())
+  roundId    String
+  round      SurveyRound @relation(fields: [roundId], references: [id])
+  answers    Json
+  generation Generation?
+  staffType  StaffType?
 }
 
 model SurveyParticipation {

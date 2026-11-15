@@ -35,6 +35,24 @@ export interface DemographicRowDto {
   value: number;
 }
 
+/** Engagement of one group. avgXp and participationRate are null (suppressed) when the group has fewer than 5 people. */
+export interface EngagementRowDto {
+  key: Bi;
+  headcount: number;
+  avgXp: number | null;
+  participationRate: number | null;
+  suppressed: boolean;
+}
+
 export interface DemographicsDto {
   byGender: DemographicRowDto[];
+  /** Headcount per generation, plus "Prefer not to say" and "Not recorded". */
+  byGeneration: DemographicRowDto[];
+  /** Headcount per job role (academic/administrative), plus "Prefer not to say" and "Not recorded". */
+  byStaffType: DemographicRowDto[];
+  engagement: {
+    generation: EngagementRowDto[];
+    staffType: EngagementRowDto[];
+  };
+  minGroupSize: number;
 }

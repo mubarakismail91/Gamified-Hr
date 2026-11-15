@@ -39,7 +39,13 @@ let counter = 0;
 export async function createUser(
   prisma: PrismaService,
   role: 'employee' | 'manager' | 'admin',
-  opts: { departmentId?: string | null; name?: string; totalXp?: number } = {},
+  opts: {
+    departmentId?: string | null;
+    name?: string;
+    totalXp?: number;
+    generation?: 'gen_z' | 'millennial' | 'gen_x' | 'boomer' | 'undisclosed' | null;
+    staffType?: 'academic' | 'administrative' | 'undisclosed' | null;
+  } = {},
 ) {
   passwordHash ??= await bcrypt.hash(PASSWORD, 4); // low cost: fast tests, same algorithm
   counter += 1;
@@ -59,6 +65,8 @@ export async function createUser(
       avatarTone: 'bg-emerald-100 text-emerald-800',
       departmentId: opts.departmentId ?? null,
       totalXp: opts.totalXp ?? 0,
+      generation: opts.generation ?? null,
+      staffType: opts.staffType ?? null,
     },
   });
 }

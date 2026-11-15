@@ -33,4 +33,7 @@ export interface StaffMemberDto {
   featuredBadgeIds: string[];
   avatarTone: string;
   mustChangePassword: boolean;
+  /** Admin views only (users list/create/update) — never sent on profiles, leaderboards or team rosters. */
+  generation?: 'gen_z' | 'millennial' | 'gen_x' | 'boomer' | 'undisclosed' | null;
+  staffType?: 'academic' | 'administrative' | 'undisclosed' | null;
 }

@@ -38,17 +38,17 @@ import { DateStamp } from "@/components/common/DateStamp";
 import { EmptyState } from "@/components/common/EmptyState";
 import {
   BadgeDistributionChart,
-  DemographicsBar,
   ParticipationChart,
   SdtScoresChart,
   XpByDeptChart,
 } from "@/components/admin/Charts";
 import { QuestManager } from "@/components/admin/QuestManager";
 import { UserManager } from "@/components/admin/UserManager";
+import { DemographicsPanel } from "@/components/admin/DemographicsPanel";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
-import { useAnalyticsOverviewQuery, useDemographicsQuery } from "@/queries/useAnalytics";
+import { useAnalyticsOverviewQuery } from "@/queries/useAnalytics";
 import {
   useQuestionBankQuery,
   useSdtScoresQuery,
@@ -66,7 +66,6 @@ export default function AdminPanel() {
   const { role } = useSession();
   const auditQuery = useAuditQuery();
   const overviewQuery = useAnalyticsOverviewQuery();
-  const demographicsQuery = useDemographicsQuery();
   const surveyRoundsQuery = useSurveyRoundsQuery();
   const sdtScoresQuery = useSdtScoresQuery();
   const createSurveyRound = useCreateSurveyRoundMutation();
@@ -213,21 +212,9 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* Demographics — gender only for now: the other demo dimensions
-            (academic/administrative split, college) aren't backed by real
-            data yet (no employmentType column; college is never set by the
-            real user form), so they're dropped rather than shown empty. */}
-        <TabsContent value="demographics" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.filterGender")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DemographicsBar data={demographicsQuery.data?.byGender ?? []} />
-              </CardContent>
-            </Card>
-          </div>
+        {/* Demographics — headcounts, engagement and SDT averages by group (k = 5, enforced server-side). */}
+        <TabsContent value="demographics">
+          <DemographicsPanel />
         </TabsContent>
 
         {/* User management */}

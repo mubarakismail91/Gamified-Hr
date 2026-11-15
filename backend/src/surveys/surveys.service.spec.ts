@@ -32,7 +32,10 @@ function fakePrisma() {
     surveyResponse: { findMany: jest.fn(), create: jest.fn().mockReturnValue('response-op') },
     surveyQuestion: { findMany: jest.fn().mockResolvedValue(questions) },
     surveyParticipation: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockReturnValue('participation-op') },
-    user: { count: jest.fn().mockResolvedValue(10) },
+    user: {
+      count: jest.fn().mockResolvedValue(10),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ generation: null, staffType: null }),
+    },
     auditLog: { create: jest.fn() },
     $transaction: jest.fn().mockResolvedValue([]),
   };
@@ -111,7 +114,7 @@ describe('SurveysService.submitResponse', () => {
     await new SurveysService(prisma as unknown as PrismaService).submitResponse('r1', goodAnswers, 'e1');
 
     const responseData = prisma.surveyResponse.create.mock.calls[0][0].data;
-    expect(responseData).toEqual({ roundId: 'r1', answers: goodAnswers.answers });
+    expect(responseData).toEqual({ roundId: 'r1', answers: goodAnswers.answers, generation: null, staffType: null });
     expect(responseData).not.toHaveProperty('userId');
     expect(prisma.surveyParticipation.create).toHaveBeenCalledWith({ data: { roundId: 'r1', userId: 'e1' } });
     expect(prisma.$transaction).toHaveBeenCalledWith(['response-op', 'participation-op']);

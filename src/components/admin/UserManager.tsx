@@ -45,7 +45,7 @@ import {
 import { useDepartmentsQuery } from "@/queries/useDepartments";
 import { useBadgesQuery, useAwardBadgeMutation } from "@/queries/useBadges";
 import { useLocale } from "@/hooks/useLocale";
-import type { Role, StaffMember } from "@/data";
+import type { Generation, Role, StaffMember, StaffType } from "@/data";
 
 type AwardType = "xp" | "badge";
 
@@ -59,11 +59,27 @@ type UserDraft = {
   role: Role;
   /** Empty until chosen — a new user must have one picked, so the demographics chart never counts a silent default. */
   gender: "male" | "female" | "";
+  /** Optional. NOT_RECORDED is the form's stand-in for null (Radix Select can't hold an empty value). */
+  generation: Generation | typeof NOT_RECORDED;
+  staffType: StaffType | typeof NOT_RECORDED;
   startingXp: number;
 };
 
+const NOT_RECORDED = "not_recorded";
+const fromChoice = <T extends string>(v: T | typeof NOT_RECORDED): T | null => (v === NOT_RECORDED ? null : v);
+
 function emptyDraft(firstDeptId: string): UserDraft {
-  return { nameEn: "", email: "", titleEn: "", departmentId: firstDeptId, role: "employee", gender: "", startingXp: 0 };
+  return {
+    nameEn: "",
+    email: "",
+    titleEn: "",
+    departmentId: firstDeptId,
+    role: "employee",
+    gender: "",
+    generation: NOT_RECORDED,
+    staffType: NOT_RECORDED,
+    startingXp: 0,
+  };
 }
 
 const ALL_DEPARTMENTS = "__all__";
@@ -148,6 +164,8 @@ export function UserManager() {
       departmentId: u.departmentId,
       role: u.role,
       gender: u.gender,
+      generation: u.generation ?? NOT_RECORDED,
+      staffType: u.staffType ?? NOT_RECORDED,
       startingXp: u.totalXp,
     });
 
@@ -168,6 +186,8 @@ export function UserManager() {
             departmentId: editing.departmentId,
             role: editing.role,
             gender: editing.gender,
+            generation: fromChoice(editing.generation),
+            staffType: fromChoice(editing.staffType),
           },
         });
         toast.success(t("common.saveChanges"));
@@ -179,6 +199,8 @@ export function UserManager() {
           departmentId: editing.departmentId,
           role: editing.role,
           gender: editing.gender,
+          generation: fromChoice(editing.generation),
+          staffType: fromChoice(editing.staffType),
           startingXp: editing.startingXp,
         });
         setCreatedCreds({
@@ -409,6 +431,43 @@ export function UserManager() {
                     <SelectItem value="female">{t("admin.genderFemale")}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>{t("admin.generationLabel")}</Label>
+                    <Select
+                      value={editing.generation}
+                      onValueChange={(v) => setEditing({ ...editing, generation: v as UserDraft["generation"] })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NOT_RECORDED}>{t("admin.notRecorded")}</SelectItem>
+                        <SelectItem value="gen_z">{t("admin.generations.gen_z")}</SelectItem>
+                        <SelectItem value="millennial">{t("admin.generations.millennial")}</SelectItem>
+                        <SelectItem value="gen_x">{t("admin.generations.gen_x")}</SelectItem>
+                        <SelectItem value="boomer">{t("admin.generations.boomer")}</SelectItem>
+                        <SelectItem value="undisclosed">{t("admin.preferNotToSay")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("admin.staffTypeLabel")}</Label>
+                    <Select
+                      value={editing.staffType}
+                      onValueChange={(v) => setEditing({ ...editing, staffType: v as UserDraft["staffType"] })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NOT_RECORDED}>{t("admin.notRecorded")}</SelectItem>
+                        <SelectItem value="academic">{t("admin.staffTypes.academic")}</SelectItem>
+                        <SelectItem value="administrative">{t("admin.staffTypes.administrative")}</SelectItem>
+                        <SelectItem value="undisclosed">{t("admin.preferNotToSay")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">{t("admin.demographicsOptionalHint")}</p>
               </div>
               {!editing.id && (
                 <div className="space-y-1.5">

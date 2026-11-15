@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { Role, StaffMember } from "@/data";
+import type { Generation, Role, StaffMember, StaffType } from "@/data";
 
 export interface CreateUserInput {
   nameEn: string;
@@ -9,6 +9,8 @@ export interface CreateUserInput {
   departmentId: string | null;
   role: Role;
   gender?: "male" | "female";
+  generation?: Generation | null;
+  staffType?: StaffType | null;
   startingXp?: number;
 }
 
@@ -20,6 +22,8 @@ export interface UpdateUserInput {
   departmentId?: string | null;
   role?: Role;
   gender?: "male" | "female";
+  generation?: Generation | null;
+  staffType?: StaffType | null;
   isActive?: boolean;
 }
 

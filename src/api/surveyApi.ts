@@ -26,6 +26,24 @@ export interface SdtScoresResult {
   suppressed: boolean;
 }
 
+export type DemographicDimension = "generation" | "staffType";
+
+/** respondents is null when the group is suppressed, so its exact size isn't shown either. */
+export interface GroupScores {
+  key: string;
+  label: Bi;
+  respondents: number | null;
+  suppressed: boolean;
+  scores: SdtScore[];
+}
+
+export interface SdtScoresByGroup {
+  dimension: DemographicDimension;
+  respondentCount: number;
+  suppressed: boolean;
+  groups: GroupScores[];
+}
+
 export interface CreateSurveyRoundInput {
   titleEn: string;
   titleAr?: string;
@@ -68,4 +86,11 @@ export async function listActiveSurveys(): Promise<ActiveSurvey[]> {
 
 export async function submitSurveyResponse(roundId: string, answers: Record<string, number>): Promise<void> {
   await apiClient.post(`/surveys/${roundId}/responses`, { answers });
+}
+
+export async function getSdtScoresByGroup(dimension: DemographicDimension, roundId?: string): Promise<SdtScoresByGroup> {
+  const res = await apiClient.get<SdtScoresByGroup>("/surveys/scores/by-group", {
+    params: roundId ? { dimension, roundId } : { dimension },
+  });
+  return res.data;
 }
