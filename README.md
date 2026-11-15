@@ -67,7 +67,17 @@ in memory, so reloading the page signs you out.
 | `npm run build` | Type-check and build the frontend to `dist/` |
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run start:dev` (in `backend/`) | Run the API in watch mode |
-| `npm run test` (in `backend/`) | Run backend unit tests |
+| `npm test` | Frontend unit tests (Vitest): rank math, role permissions, EN/AR dictionaries |
+| `npm test` (in `backend/`) | Backend unit tests (Jest): badge rules, streaks, k-anonymity, survey validation |
+| `npm run test:e2e` (in `backend/`) | API tests against a separate `iu_hr_test` database: RBAC, quest lifecycle, surveys, duplicate approvals |
+
+### Tests
+
+The API tests create and migrate their own database, `iu_hr_test`, using the
+credentials in `backend/.env` (or `TEST_DATABASE_URL` if set). They empty that
+database before each test file and refuse to run against any database whose
+name doesn't contain `test`, so the dev database is never touched. GitHub
+Actions runs all three suites on every push (`.github/workflows/tests.yml`).
 
 ## Project structure
 

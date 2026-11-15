@@ -15,7 +15,7 @@ export interface PeriodXpStats {
 /** For list views that don't render period stats and shouldn't pay for computing them per row. */
 export const ZERO_PERIOD_STATS: PeriodXpStats = { pointsThisWeek: 0, pointsThisMonth: 0, xpGainedThisMonth: 0 };
 
-function startOfWeek(now: Date): Date {
+export function startOfWeek(now: Date): Date {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const day = d.getDay(); // 0 = Sunday ... 6 = Saturday
   const diffToMonday = day === 0 ? 6 : day - 1;
@@ -23,7 +23,7 @@ function startOfWeek(now: Date): Date {
   return d;
 }
 
-function startOfMonth(now: Date): Date {
+export function startOfMonth(now: Date): Date {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 

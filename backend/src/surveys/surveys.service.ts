@@ -7,7 +7,7 @@ import { SubmitSurveyResponseDto } from './dto/submit-survey-response.dto';
 import type { ActiveSurveyDto, SdtScoresResultDto, SurveyRoundDto, SurveyRoundStatus } from './dto/survey.dto';
 
 /** Below this many respondents, averages aren't reported — same principle the original plan flagged as non-negotiable for survey anonymity. */
-const K_ANONYMITY_THRESHOLD = 5;
+export const K_ANONYMITY_THRESHOLD = 5;
 
 const SCALE_LABEL: Record<string, { en: string; ar: string }> = {
   autonomy: { en: 'Autonomy', ar: 'الاستقلالية' },
@@ -16,7 +16,7 @@ const SCALE_LABEL: Record<string, { en: string; ar: string }> = {
 };
 
 /** Never stored — derived from opensAt/closesAt vs. now() so it can't drift out of sync with the dates. */
-function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyRoundStatus {
+export function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyRoundStatus {
   if (now < opensAt) return 'scheduled';
   if (closesAt && now > closesAt) return 'closed';
   return 'open';

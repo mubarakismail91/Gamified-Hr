@@ -91,25 +91,26 @@ export class AssignmentsService {
   async approve(assignmentId: string, actor: AuthenticatedUser): Promise<AssignmentDto> {
     const { assignment, quest } = await this.reviewableOrThrow(assignmentId, actor);
 
-    const pending = await this.prisma.questSubmission.findFirst({
-      where: { assignmentId: assignment.id, status: 'pending' },
-    });
-    if (!pending) throw new BadRequestException('No pending submission to approve.');
+    const updatedAssignment = await this.prisma.$transaction(async (tx) => {
+      // Claim the submission first. The conditional UPDATE locks the row, so if two approvals (or an
+      // approval and a rejection) arrive at once, the second one waits, then finds nothing still
+      // 'pending' and is refused — the XP below can only ever be awarded once.
+      const now = new Date();
+      const claimed = await tx.questSubmission.updateMany({
+        where: { assignmentId: assignment.id, status: 'pending' },
+        data: { status: 'approved', reviewedAt: now },
+      });
+      if (claimed.count === 0) throw new BadRequestException('No pending submission to approve.');
 
-    const [updatedAssignment] = await this.prisma.$transaction([
-      this.prisma.questAssignment.update({
+      const updated = await tx.questAssignment.update({
         where: { id: assignment.id },
-        data: { status: 'completed', approvedAt: new Date(), reviewedById: actor.id },
-      }),
-      this.prisma.questSubmission.update({
-        where: { id: pending.id },
-        data: { status: 'approved', reviewedAt: new Date() },
-      }),
-      this.prisma.user.update({
+        data: { status: 'completed', approvedAt: now, reviewedById: actor.id },
+      });
+      await tx.user.update({
         where: { id: assignment.employeeId },
         data: { totalXp: { increment: quest.xp } },
-      }),
-      this.prisma.activityLog.create({
+      });
+      await tx.activityLog.create({
         data: {
           userId: assignment.employeeId,
           kind: 'quest',
@@ -119,8 +120,8 @@ export class AssignmentsService {
           refType: 'Quest',
           refId: quest.id,
         },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: assignment.employeeId,
           kind: 'xp',
@@ -129,8 +130,9 @@ export class AssignmentsService {
           bodyEn: `"${quest.titleEn}" was approved by your manager.`,
           bodyAr: `تمت الموافقة على "${quest.titleAr}" من قِبل مديرك.`,
         },
-      }),
-    ]);
+      });
+      return updated;
+    });
 
     // Completing a quest on a skill path starts (follows) that path for the employee; the level itself is
     // derived from their completed quests, so there's nothing else to record.
@@ -157,21 +159,19 @@ export class AssignmentsService {
   async reject(assignmentId: string, note: string | undefined, actor: AuthenticatedUser): Promise<AssignmentDto> {
     const { assignment, quest } = await this.reviewableOrThrow(assignmentId, actor);
 
-    const pending = await this.prisma.questSubmission.findFirst({
-      where: { assignmentId: assignment.id, status: 'pending' },
-    });
-    if (!pending) throw new BadRequestException('No pending submission to reject.');
+    const updatedAssignment = await this.prisma.$transaction(async (tx) => {
+      // Same claim-first pattern as approve(): only one review of a submission can ever win.
+      const claimed = await tx.questSubmission.updateMany({
+        where: { assignmentId: assignment.id, status: 'pending' },
+        data: { status: 'denied', reviewedAt: new Date(), feedback: note },
+      });
+      if (claimed.count === 0) throw new BadRequestException('No pending submission to reject.');
 
-    const [updatedAssignment] = await this.prisma.$transaction([
-      this.prisma.questAssignment.update({
+      const updated = await tx.questAssignment.update({
         where: { id: assignment.id },
         data: { status: 'accepted', rejectionNote: note, submittedAt: null },
-      }),
-      this.prisma.questSubmission.update({
-        where: { id: pending.id },
-        data: { status: 'denied', reviewedAt: new Date(), feedback: note },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: assignment.employeeId,
           kind: 'quest',
@@ -184,8 +184,9 @@ export class AssignmentsService {
             ? `مهمة "${quest.titleAr}" تحتاج مراجعة: ${note}`
             : `أُعيدت مهمة "${quest.titleAr}" لمزيد من العمل.`,
         },
-      }),
-    ]);
+      });
+      return updated;
+    });
 
     await logAudit(this.prisma, {
       actorId: actor.id,

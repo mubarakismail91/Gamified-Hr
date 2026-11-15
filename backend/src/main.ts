@@ -1,8 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
 import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
+import { configureApp } from './app.setup';
 import { UPLOAD_DIR } from './submissions/multer.config';
 
 async function bootstrap() {
@@ -12,9 +11,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  // Refresh tokens live in an httpOnly cookie (see Phase B) — needs the parser
-  // wired up before any route reads req.cookies.
-  app.use(cookieParser());
+  // Cookie parser + global ValidationPipe (shared with the API tests).
+  configureApp(app);
 
   // credentials: true lets the browser send/receive the httpOnly refresh
   // cookie cross-origin (frontend on :5173, API on :4000 in dev).
@@ -22,16 +20,6 @@ async function bootstrap() {
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
   });
-
-  // Strips unknown fields and rejects requests that don't match a DTO's
-  // shape/types — this is the "class-validator" layer the plan called for.
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
 
   await app.listen(process.env.PORT ?? 4000);
 }
