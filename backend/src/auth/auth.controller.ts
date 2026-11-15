@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { Throttle } from '@nestjs/throttler';
+import { FIFTEEN_MINUTES_MS, loginLimit } from '../common/guards/app-throttler.guard';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @Controller('auth')
@@ -11,6 +13,8 @@ export class AuthController {
   constructor(private auth: AuthService) {}
 
   @Public()
+  // At most LOGIN_ATTEMPTS_PER_15_MIN (default 5) attempts per IP + email every 15 minutes.
+  @Throttle({ default: { limit: loginLimit, ttl: FIFTEEN_MINUTES_MS } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {

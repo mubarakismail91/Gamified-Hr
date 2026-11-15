@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AtSign, Award, IdCard, MapPin, Medal, Network, Sparkles, Swords } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { EmploymentNotice } from "@/components/common/EmploymentNotice";
+import { DownloadMyDataButton } from "@/components/privacy/DownloadMyDataButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -59,7 +61,8 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("profile.title")} />
+      <PageHeader title={t("profile.title")} actions={<DownloadMyDataButton />} />
+      <EmploymentNotice />
 
       {/* Identity card */}
       <Card>

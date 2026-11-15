@@ -74,6 +74,7 @@ export const en = {
     passwordLabel: "Password",
     signInButton: "Sign in",
     signingIn: "Signing in…",
+    tooManyAttempts: "Too many sign-in attempts for this account. Please wait {{minutes}} minute(s) and try again.",
     loginError: "Incorrect email or password.",
     pillar1Title: "Autonomy",
     pillar1Body: "Choose the quests and development paths that fit your role and goals.",
@@ -383,6 +384,101 @@ export const en = {
     avgXp: "XP avg",
     yourSquad: "Your squad",
   },
+  privacy: {
+    title: "Privacy notice",
+    back: "Back",
+    intro:
+      "How the IU Gamified HR platform handles your personal data, under the Saudi Personal Data Protection Law (PDPL). This notice describes how the system works; your HR administration can answer any question about it.",
+    employmentNotice:
+      "Points, ranks and badges recognise engagement. They are never used to evaluate your performance or to decide pay, promotion or any other employment matter.",
+    learnMore: "Privacy notice",
+    downloadMyData: "Download my data",
+    downloadFailed: "Your data could not be downloaded. Please try again.",
+    sections: {
+      who: { title: "Who is responsible", items: ["The Islamic University of Madinah operates this platform through its HR administration.", "Questions and requests go to your HR administrator."] },
+      what: {
+        title: "What we hold about you",
+        items: [
+          "Account details: name, university email, job title, department, role and gender.",
+          "Optional: your generation group and whether you are academic or administrative staff (you may choose \u201cprefer not to say\u201d). We never store your date of birth.",
+          "Your activity: quests and the files you submit, XP, badges, Kudos you send and receive, squads and challenges.",
+          "Notifications, sign-in sessions, and a record of administrative actions (the audit trail).",
+          "Pulse-survey answers are stored without your identity, so they can never be traced back to you.",
+        ],
+      },
+      why: {
+        title: "Why we use it",
+        items: [
+          "To run the engagement programme: quests, recognition, leaderboards and squads.",
+          "To produce anonymous group statistics that help improve the programme.",
+          "Only if you opt in: the research study on the Pulse Surveys page, which links your future answers to your activity under a research code.",
+        ],
+      },
+      visibility: {
+        title: "Who can see what",
+        items: [
+          "Colleagues see your name, department, XP, badges and Kudos on leaderboards and profiles.",
+          "Your department manager sees your quest submissions so they can review them.",
+          "Administrators manage accounts and can see the audit trail.",
+          "Your generation and job role are visible to administrators only, and only appear in statistics for groups of five or more people.",
+        ],
+      },
+      employment: {
+        title: "No employment decisions",
+        items: [
+          "Points, ranks, badges and survey results are engagement signals only. They are never used to evaluate performance or to decide hiring, pay, promotion or discipline.",
+        ],
+      },
+      retention: { title: "How long we keep it" },
+      rights: {
+        title: "Your rights",
+        items: [
+          "Access: download everything we hold about you at any time (button below, also on your Profile page).",
+          "Correction: ask your HR administrator to correct anything that is wrong.",
+          "Deletion: when your account is closed, your personal data is anonymised (see the periods above). You can ask your HR administrator to do this sooner.",
+          "Research study: you can leave at any time on the Pulse Surveys page; your linked answers are deleted at once.",
+        ],
+      },
+      security: {
+        title: "How we protect it",
+        items: [
+          "Passwords are stored only as one-way hashes; nobody, including administrators, can read them.",
+          "Connections are encrypted, sign-in attempts are rate-limited, and sessions expire automatically.",
+          "Administrative actions are recorded in an audit trail.",
+        ],
+      },
+    },
+    retention: {
+      notifications: "Notifications are deleted {{days}} days after they are sent.",
+      accounts: "When an account is deactivated, its personal data is anonymised after {{days}} days (or earlier on request).",
+      sessions: "Expired sign-in sessions are deleted straight away; ended ones after {{days}} days.",
+      research: "Answers linked to the research study are deleted when you leave the study or when the study ends.",
+      surveys: "Anonymous survey answers are kept for the study and deleted after it ends, as set out in the study protocol.",
+    },
+    admin: {
+      retentionTitle: "Data retention",
+      jobOn: "The cleanup job runs automatically every day at 03:00.",
+      jobOff: "The automatic cleanup job is switched off on this server.",
+      runNow: "Run cleanup now",
+      runTitle: "Run the retention cleanup now?",
+      runBody: "Old notifications and sessions will be deleted, and accounts deactivated longer than the retention period will be anonymised. This cannot be undone.",
+      runResult: "Cleanup done: {{notifications}} notifications, {{sessions}} sessions, {{accounts}} accounts anonymised.",
+      deactivatedTitle: "Deactivated accounts",
+      deactivatedHint: "Erasing anonymises a person's personal data. Their XP still counts in totals and the audit trail stays, showing \u201cFormer staff member\u201d.",
+      person: "Person",
+      deactivatedOn: "Deactivated",
+      status: "Personal data",
+      noneDeactivated: "No deactivated accounts.",
+      erase: "Erase",
+      erasedBadge: "Erased",
+      eraseTitle: "Erase this person's data?",
+      eraseBody:
+        "{{name}}'s name, email, demographics, notifications, sessions, uploaded files, squad and research records will be removed, and their Kudos messages replaced. This cannot be undone.",
+      eraseConfirm: "Erase permanently",
+      erased: "Personal data erased.",
+      eraseFailed: "The account could not be erased.",
+    },
+  },
   profile: {
     title: "Profile",
     memberSince: "Member since {{date}}",
@@ -420,6 +516,7 @@ export const en = {
       departments: "Departments",
       quests: "Quest management",
       surveys: "SDT surveys",
+      privacy: "Privacy",
       audit: "Audit trail",
     },
     kpiActive: "Active participants",

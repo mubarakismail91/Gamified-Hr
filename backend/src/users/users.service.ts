@@ -142,6 +142,8 @@ export class UsersService {
         generation: dto.generation,
         staffType: dto.staffType,
         isActive: dto.isActive,
+        // Start (or clear) the retention clock when an account is deactivated (or reactivated).
+        deactivatedAt: dto.isActive === undefined ? undefined : dto.isActive ? null : existing.isActive ? new Date() : existing.deactivatedAt,
         departmentId: dto.departmentId !== undefined ? dto.departmentId : undefined,
       },
     });
@@ -165,7 +167,7 @@ export class UsersService {
     const existing = await this.prisma.user.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('User not found.');
 
-    await this.prisma.user.update({ where: { id }, data: { isActive: false } });
+    await this.prisma.user.update({ where: { id }, data: { isActive: false, deactivatedAt: new Date() } });
     await this.prisma.department.updateMany({ where: { managerId: id }, data: { managerId: null } });
     await syncManagerRoles(this.prisma);
     await logAudit(this.prisma, {

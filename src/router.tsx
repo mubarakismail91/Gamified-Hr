@@ -13,6 +13,7 @@ import SkillTree from "@/pages/SkillTree";
 import Surveys from "@/pages/Surveys";
 import Kudos from "@/pages/Kudos";
 import Squads from "@/pages/Squads";
+import Privacy from "@/pages/Privacy";
 import Profile from "@/pages/Profile";
 import PublicProfile from "@/pages/PublicProfile";
 import Notifications from "@/pages/Notifications";
@@ -43,6 +44,7 @@ function RequirePermission({ check, children }: { check: (role: Role) => boolean
 
 export const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
+  { path: "/privacy", element: <Privacy /> }, // public: readable before signing in
   {
     element: <RequireAuth />,
     children: [

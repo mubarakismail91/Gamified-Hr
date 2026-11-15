@@ -5,6 +5,7 @@ import type { Bi } from '../common/dto/staff-member.dto';
 import type { AuditEntryDto } from './dto/audit-entry.dto';
 
 const UNKNOWN: Bi = { en: '—', ar: '—' };
+const SYSTEM: Bi = { en: 'System', ar: 'النظام' };
 
 /** Static, human-readable label per audit action code — mirrors the demo's fixed Bi action strings (e.g. makeAudit("Sent Kudos", ...) in DemoDataContext.tsx). */
 function actionLabel(action: string, metadata: unknown): Bi {
@@ -49,6 +50,15 @@ function actionLabel(action: string, metadata: unknown): Bi {
         ? { en: `Awarded badge: ${badgeName}`, ar: `منح وسام: ${badgeName}` }
         : { en: 'Awarded badge', ar: 'منح وسامًا' };
     }
+    case 'privacy.dataExported':
+      return { en: 'Downloaded their personal data', ar: 'نزّل بياناته الشخصية' };
+    case 'user.erased':
+      return { en: 'Erased personal data', ar: 'محا البيانات الشخصية' };
+    case 'retention.ran':
+      return {
+        en: `Retention cleanup: ${Number(meta.notificationsDeleted ?? 0)} notifications, ${Number(meta.sessionsDeleted ?? 0)} sessions, ${Number(meta.accountsAnonymised ?? 0)} accounts`,
+        ar: `تنظيف الاحتفاظ: ${Number(meta.notificationsDeleted ?? 0)} إشعار، ${Number(meta.sessionsDeleted ?? 0)} جلسة، ${Number(meta.accountsAnonymised ?? 0)} حساب`,
+      };
     case 'squad.created':
       return { en: `Created squad: ${String(meta.name ?? '')}`, ar: `أنشأ فريقًا: ${String(meta.name ?? '')}` };
     case 'squad.disbanded':
@@ -78,7 +88,7 @@ export class AuditService {
     const rows = await this.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
     if (rows.length === 0) return [];
 
-    const actorIds = Array.from(new Set(rows.map((r) => r.actorId)));
+    const actorIds = Array.from(new Set(rows.map((r) => r.actorId).filter((id): id is string => id !== null)));
     const userTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'User' && r.targetId).map((r) => r.targetId!)));
     const questTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'Quest' && r.targetId).map((r) => r.targetId!)));
     const deptTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'Department' && r.targetId).map((r) => r.targetId!)));
@@ -113,7 +123,7 @@ export class AuditService {
     return rows.map((r) => ({
       id: r.id,
       at: r.createdAt,
-      actor: actorMap.get(r.actorId) ?? UNKNOWN,
+      actor: r.actorId === null ? SYSTEM : (actorMap.get(r.actorId) ?? UNKNOWN),
       action: actionLabel(r.action, r.metadata),
       target: this.resolveTarget(r, { userMap, questMap, deptMap, assignmentMap }),
     }));

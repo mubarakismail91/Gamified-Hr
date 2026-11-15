@@ -46,6 +46,7 @@ import { QuestManager } from "@/components/admin/QuestManager";
 import { UserManager } from "@/components/admin/UserManager";
 import { DemographicsPanel } from "@/components/admin/DemographicsPanel";
 import { ResearchExportCard } from "@/components/admin/ResearchExportCard";
+import { PrivacyPanel } from "@/components/admin/PrivacyPanel";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
@@ -169,6 +170,7 @@ export default function AdminPanel() {
           <TabsTrigger value="quests">{t("admin.tabs.quests")}</TabsTrigger>
           <TabsTrigger value="surveys">{t("admin.tabs.surveys")}</TabsTrigger>
           <TabsTrigger value="audit">{t("admin.tabs.audit")}</TabsTrigger>
+          <TabsTrigger value="privacy">{t("admin.tabs.privacy")}</TabsTrigger>
         </TabsList>
 
         {/* Analytics */}
@@ -289,6 +291,10 @@ export default function AdminPanel() {
         </TabsContent>
 
         {/* Audit trail */}
+        <TabsContent value="privacy">
+          <PrivacyPanel />
+        </TabsContent>
+
         <TabsContent value="audit" className="space-y-3">
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <ScrollText className="h-4 w-4" />

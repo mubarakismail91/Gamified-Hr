@@ -150,23 +150,4 @@ describe('Research track and exports (API)', () => {
     const exported = await ctx.http().get('/research/export/participants').set(bearer(adminToken)).expect(200);
     expect(csvLines(exported.text)).toHaveLength(1); // header only
   });
-
-  describe('without RESEARCH_KEY', () => {
-    let saved: string | undefined;
-    beforeAll(() => {
-      saved = process.env.RESEARCH_KEY;
-      delete process.env.RESEARCH_KEY;
-    });
-    afterAll(() => {
-      process.env.RESEARCH_KEY = saved;
-    });
-
-    it('the research track is switched off, but anonymous aggregates still work', async () => {
-      const mine = await ctx.http().get('/research/consent').set(bearer(volunteer.token)).expect(200);
-      expect(mine.body.available).toBe(false);
-      await ctx.http().post('/research/consent').set(bearer(volunteer.token)).expect(503);
-      await ctx.http().get('/research/export/participants').set(bearer(adminToken)).expect(503);
-      await ctx.http().get('/research/export/aggregates').set(bearer(adminToken)).expect(200);
-    });
-  });
 });

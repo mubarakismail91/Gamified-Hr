@@ -1,5 +1,6 @@
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import type { ServerOptions } from 'socket.io';
+import { allowedOrigins } from '../config/env.validation';
 
 /**
  * Socket.IO on the same HTTP server and port as the REST API. CORS is applied here, at runtime,
@@ -9,7 +10,7 @@ export class SocketIoAdapter extends IoAdapter {
   createIOServer(port: number, options?: ServerOptions) {
     return super.createIOServer(port, {
       ...options,
-      cors: { origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173', credentials: true },
+      cors: { origin: allowedOrigins(), credentials: true },
     });
   }
 }

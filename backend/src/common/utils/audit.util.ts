@@ -9,7 +9,7 @@ import type { Prisma } from '@prisma/client';
  */
 export async function logAudit(
   prisma: PrismaService,
-  entry: { actorId: string; action: string; targetType: string; targetId?: string; metadata?: Prisma.InputJsonValue },
+  entry: { actorId: string | null; action: string; targetType: string; targetId?: string; metadata?: Prisma.InputJsonValue },
 ): Promise<void> {
   await prisma.auditLog.create({
     data: {
