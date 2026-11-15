@@ -18,3 +18,5 @@ backend/node_modules
 backend/dist
 backend/uploads
 backend/backups
+backend/loadtest/load.env
+backend/loadtest/results/*.json

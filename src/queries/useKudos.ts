@@ -4,8 +4,16 @@ import * as kudoApi from "@/api/kudoApi";
 export function useKudosQuery() {
   return useQuery({
     queryKey: ["kudos"] as const,
-    queryFn: kudoApi.listKudos,
+    queryFn: () => kudoApi.listKudos(),
   });
+}
+
+export function useRecentKudosReceivedQuery(limit = 3) {
+  return useQuery({ queryKey: ["kudos", "received", limit] as const, queryFn: () => kudoApi.listKudos({ limit, received: true }) });
+}
+
+export function useKudosReceivedCountQuery() {
+  return useQuery({ queryKey: ["kudos", "received-count"] as const, queryFn: kudoApi.getReceivedCount });
 }
 
 export function useSendKudoMutation() {

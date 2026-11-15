@@ -20,8 +20,13 @@ export class KudosService {
   ) {}
 
   /** Platform-wide feed, most recent first — same as the demo's Kudos page. */
-  async findAll(): Promise<KudoDto[]> {
-    const kudos = await this.prisma.kudo.findMany({ orderBy: { createdAt: 'desc' } });
+  async findAll(limit = 50, toUserId?: string): Promise<KudoDto[]> {
+    // The latest `limit` only: the full history grows forever (6,000 rows at 3,000 staff in the load test).
+    const kudos = await this.prisma.kudo.findMany({
+      where: toUserId ? { toUserId } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
     if (kudos.length === 0) return [];
 
     const userIds = Array.from(new Set(kudos.flatMap((k) => [k.fromUserId, k.toUserId])));
@@ -55,6 +60,11 @@ export class KudosService {
         fromStaff: staffMap.get(k.fromUserId)!,
         toStaff: staffMap.get(k.toUserId)!,
       }));
+  }
+
+  /** How many Kudos this person has received (for the Profile stat, without downloading the feed). */
+  async receivedCount(userId: string): Promise<{ count: number }> {
+    return { count: await this.prisma.kudo.count({ where: { toUserId: userId } }) };
   }
 
   /** Sends Kudos and awards the recipient a fixed XP bonus, same as the demo. */

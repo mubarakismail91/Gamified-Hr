@@ -18,16 +18,20 @@ export class BadgesService {
     return badges.map(toBadgeDto);
   }
 
-  /** The catalog resolved for one Employee: earned status + real progress toward each automatic requirement. */
+  /**
+   * The catalog resolved for one Employee: earned status + real progress toward each automatic
+   * requirement. One pass: each badge's progress is computed once, and any requirement that is now
+   * met is granted on the spot (the old version ran evaluate() first and then computed every
+   * badge's progress a second time — the slowest endpoint in the load test).
+   */
   async findAllForEmployee(userId: string): Promise<MyBadgeDto[]> {
-    await this.evaluate(userId);
-
     const [user, badges, earnedRows] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.badge.findMany({ orderBy: { nameEn: 'asc' } }),
       this.prisma.userBadge.findMany({ where: { userId } }),
     ]);
     const earnedAt = new Map(earnedRows.map((r) => [r.badgeId, r.awardedAt]));
+    const canEarn = user.role === 'employee' && user.isActive;
     const featuredOrder = (id: string) => {
       const i = user.featuredBadgeIds.indexOf(id);
       return i >= 0 ? i : undefined;
@@ -42,6 +46,10 @@ export class BadgesService {
         if (b.criteria === null) return { ...dto, earned: false };
 
         const progress = await computeBadgeProgress(this.prisma, user, b.criteria as unknown as BadgeCriteria);
+        if (canEarn && progress.current >= progress.target) {
+          await this.grant(userId, b, null);
+          return { ...dto, earned: true, earnedOn: new Date(), featuredOrder: featuredOrder(b.id) };
+        }
         return {
           ...dto,
           earned: false,

@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 import { initialsFrom, pickAvatarTone, generateStaffId } from '../src/common/utils/identity.util';
 import { runScript } from './prisma-client';
+import { hashPassword } from '../src/common/utils/password-hash';
 
 /**
  * Bootstraps the very first Admin account — there is no signup page, so this
@@ -27,7 +27,7 @@ export async function seedAdmin(prisma: PrismaClient): Promise<string | null> {
   }
 
   const userCount = await prisma.user.count();
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   const admin = await prisma.user.create({
     data: {

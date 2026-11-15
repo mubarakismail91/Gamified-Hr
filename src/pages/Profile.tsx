@@ -18,7 +18,7 @@ import { useSession } from "@/context/SessionContext";
 import { useMyActivity } from "@/queries/useActivity";
 import { useMyAssignmentsQuery } from "@/queries/useAssignments";
 import { useMyBadges } from "@/queries/useBadges";
-import { useKudosQuery } from "@/queries/useKudos";
+import { useKudosReceivedCountQuery, useRecentKudosReceivedQuery } from "@/queries/useKudos";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import { levelFromXp } from "@/lib/xp";
@@ -51,8 +51,9 @@ export default function Profile() {
   const prog = levelFromXp(user.totalXp);
   const rankName = lang === "ar" ? prog.current.nameAr : prog.current.nameEn;
   const badges = useMyBadges();
-  const kudosQuery = useKudosQuery();
-  const kudos = (kudosQuery.data ?? []).filter((k) => k.toId === user.id);
+  // A server-side count: the Kudos feed only holds the latest entries (load test, item 8).
+  const kudosReceived = useKudosReceivedCountQuery().data ?? 0;
+  const kudos = useRecentKudosReceivedQuery(3).data ?? [];
   const skillsQuery = useSkillsQuery();
   const SKILLS = skillsQuery.data ?? [];
   const showBadges = canViewBadges(role);
@@ -114,7 +115,7 @@ export default function Profile() {
               tone="gold"
             />
           )}
-          <StatCard icon={Award} label={t("profile.kudosReceived")} value={formatNumber(kudos.length, lang)} />
+          <StatCard icon={Award} label={t("profile.kudosReceived")} value={formatNumber(kudosReceived, lang)} />
           <StatCard
             icon={Swords}
             label={t("profile.questsDone")}

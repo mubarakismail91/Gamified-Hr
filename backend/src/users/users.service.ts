@@ -1,10 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
 import { SquadChallengesService } from '../squads/squad-challenges.service';
 import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { randomUUID } from 'crypto';
+import { hashPassword } from '../common/utils/password-hash';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AwardXpDto } from './dto/award-xp.dto';
@@ -71,7 +71,7 @@ export class UsersService {
     if (existing) throw new BadRequestException('A user with this email already exists.');
 
     const temporaryPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const passwordHash = await hashPassword(temporaryPassword);
     const userCount = await this.prisma.user.count();
     const startingXp = dto.startingXp ?? 0;
 
@@ -257,7 +257,7 @@ export class UsersService {
     if (!existing) throw new NotFoundException('User not found.');
 
     const temporaryPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const passwordHash = await hashPassword(temporaryPassword);
 
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } }),

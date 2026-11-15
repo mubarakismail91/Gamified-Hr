@@ -20,6 +20,17 @@
         "start:dev"
       ],
       "port": 4000
+    },
+    {
+      "name": "api-load",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "load:server"
+      ],
+      "port": 4100
     }
   ]
 }

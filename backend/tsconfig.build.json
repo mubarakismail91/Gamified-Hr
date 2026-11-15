@@ -1,4 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // prisma/ (seed/backup/reset scripts, run with ts-node) and prisma.config.ts (read by the Prisma
+  // CLI) are not part of the server. Leaving them out keeps the output at dist/main.js, which is
+  // what `npm run start:prod` and render.yaml run.
+  "exclude": ["node_modules", "test", "dist", "loadtest", "prisma", "prisma.config.ts", "**/*spec.ts"]
 }

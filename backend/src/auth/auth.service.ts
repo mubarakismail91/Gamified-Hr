@@ -8,6 +8,7 @@ import { buildStaffMemberDto } from '../common/utils/build-staff-member';
 import { generateOpaqueToken, hashToken } from '../common/utils/token.util';
 import { parseDurationMs } from '../common/utils/duration.util';
 import { assertPasswordAllowed } from './password-policy';
+import { hashPassword } from '../common/utils/password-hash';
 import type { StaffMemberDto } from '../common/dto/staff-member.dto';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
@@ -84,7 +85,7 @@ export class AuthService {
     if (!ok) throw new BadRequestException('Current password is incorrect.');
     assertPasswordAllowed(newPassword, { email: user.email, sameAsCurrent: await bcrypt.compare(newPassword, user.passwordHash) });
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await hashPassword(newPassword);
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },
