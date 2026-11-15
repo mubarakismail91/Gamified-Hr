@@ -30,6 +30,7 @@ import {
 import { ALL_DEPARTMENTS, type Metric, type Period, type Scope } from "@/api/leaderboardApi";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
+import { SquadLeaderboard } from "@/components/squads/SquadLeaderboard";
 
 export default function Leaderboard() {
   const { t } = useTranslation();
@@ -263,6 +264,9 @@ export default function Leaderboard() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Team leaderboard (FR9) */}
+      <SquadLeaderboard period={period} />
     </div>
   );
 }

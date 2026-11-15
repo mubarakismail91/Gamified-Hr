@@ -153,6 +153,9 @@ model User {
 
   createdQuests       Quest[]           @relation("QuestCreator")
   researchConsent     ResearchConsent?
+  createdSquads       Squad[]           @relation("SquadCreator")
+  squadMemberships    SquadMember[]     @relation("SquadMemberUser")
+  createdChallenges   SquadChallenge[]  @relation("ChallengeCreator")
   assignments         QuestAssignment[] @relation("Assignee")
   reviewedAssignments QuestAssignment[] @relation("Reviewer")
   submissions         QuestSubmission[]
@@ -477,5 +480,79 @@ model ResearchResponse {
 
   @@unique([code, roundId])
   @@index([code])
+}
+
+enum SquadMemberStatus {
+  invited // waiting for the invitee to accept (employee-led squads only)
+  active
+}
+
+enum ChallengeMetric {
+  quests_completed // quests approved for squad members between startsAt and endsAt
+  xp_earned        // XP squad members earned between startsAt and endsAt
+}
+
+/// A team of 3–6 employees (FR9). Created by an employee (who invites colleagues) or by a
+/// manager/admin (who assigns members directly). Members may come from any department.
+/// Ranked on the team leaderboard only once it has at least 3 active members.
+model Squad {
+  id          String   @id @default(cuid())
+  name        String
+  createdById String
+  createdBy   User     @relation("SquadCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  members          SquadMember[]
+  challengeEntries SquadChallengeEntry[]
+}
+
+/// One row per person per squad. A person can be ACTIVE in at most one squad at a time
+/// (enforced by a partial unique index in the migration) but may hold several pending invites.
+model SquadMember {
+  id          String            @id @default(cuid())
+  squadId     String
+  squad       Squad             @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User              @relation("SquadMemberUser", fields: [userId], references: [id])
+  status      SquadMemberStatus
+  invitedById String?
+  createdAt   DateTime          @default(now())
+  joinedAt    DateTime?
+
+  @@unique([squadId, userId])
+  @@index([userId])
+}
+
+/// A shared target published by a manager or admin that any squad can join (cross-department).
+model SquadChallenge {
+  id            String          @id @default(cuid())
+  titleEn       String
+  titleAr       String
+  descriptionEn String          @default("")
+  descriptionAr String          @default("")
+  metric        ChallengeMetric
+  target        Int
+  bonusXp       Int
+  startsAt      DateTime
+  endsAt        DateTime
+  createdById   String
+  createdBy     User            @relation("ChallengeCreator", fields: [createdById], references: [id])
+  createdAt     DateTime        @default(now())
+
+  entries SquadChallengeEntry[]
+}
+
+/// A squad taking part in a challenge. completedAt is set exactly once, when the target is first
+/// reached; that same update is what awards the bonus, so it can never be paid twice.
+model SquadChallengeEntry {
+  id          String         @id @default(cuid())
+  squadId     String
+  squad       Squad          @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   SquadChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime       @default(now())
+  completedAt DateTime?
+
+  @@unique([squadId, challengeId])
 }
 

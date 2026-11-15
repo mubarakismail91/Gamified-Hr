@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
+import { SquadChallengesService } from '../squads/squad-challenges.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AwardXpDto } from './dto/award-xp.dto';
@@ -20,6 +21,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private badges: BadgesService,
+    private squadChallenges: SquadChallengesService,
   ) {}
 
   /** Admin: every user, optionally filtered by the requested department. Manager: always their own department's roster, ignoring whatever was requested — same "own department only" boundary as Quests/Departments. */
@@ -213,6 +215,7 @@ export class UsersService {
     });
 
     await this.badges.evaluate(id);
+    await this.squadChallenges.evaluateForUser(id); // may complete a squad challenge
     return buildStaffMemberDto(this.prisma, id, { includePeriodStats: false });
   }
 

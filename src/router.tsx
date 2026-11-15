@@ -12,6 +12,7 @@ import Badges from "@/pages/Badges";
 import SkillTree from "@/pages/SkillTree";
 import Surveys from "@/pages/Surveys";
 import Kudos from "@/pages/Kudos";
+import Squads from "@/pages/Squads";
 import Profile from "@/pages/Profile";
 import PublicProfile from "@/pages/PublicProfile";
 import Notifications from "@/pages/Notifications";
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: "/kudos", element: <Kudos /> },
+      { path: "/squads", element: <Squads /> },
       { path: "/profile", element: <Profile /> },
       { path: "/people/:userId", element: <PublicProfile /> },
       { path: "/notifications", element: <Notifications /> },

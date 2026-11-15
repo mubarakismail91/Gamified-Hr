@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
+import { SquadChallengesService } from '../squads/squad-challenges.service';
 import { assignmentInclude, questInclude, toAssignmentDto, toQuestDto, toSubmissionDto } from '../common/utils/quest.mapper';
 import { buildStaffMemberDto } from '../common/utils/build-staff-member';
 import { assertNotExpired } from '../common/utils/quest-expiry.util';
@@ -13,6 +14,7 @@ export class AssignmentsService {
   constructor(
     private prisma: PrismaService,
     private badges: BadgesService,
+    private squadChallenges: SquadChallengesService,
   ) {}
 
   async findMine(employeeId: string): Promise<AssignmentDto[]> {
@@ -153,6 +155,7 @@ export class AssignmentsService {
     });
 
     await this.badges.evaluate(assignment.employeeId);
+    await this.squadChallenges.evaluateForUser(assignment.employeeId); // may complete a squad challenge
     return toAssignmentDto(updatedAssignment);
   }
 

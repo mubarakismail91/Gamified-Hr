@@ -54,6 +54,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const refresh = () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["squads"] }); // invites, challenge completions
       void reloadRef.current();
     };
 

@@ -49,6 +49,14 @@ function actionLabel(action: string, metadata: unknown): Bi {
         ? { en: `Awarded badge: ${badgeName}`, ar: `منح وسام: ${badgeName}` }
         : { en: 'Awarded badge', ar: 'منح وسامًا' };
     }
+    case 'squad.created':
+      return { en: `Created squad: ${String(meta.name ?? '')}`, ar: `أنشأ فريقًا: ${String(meta.name ?? '')}` };
+    case 'squad.disbanded':
+      return { en: `Disbanded squad: ${String(meta.name ?? '')}`, ar: `حلّ فريقًا: ${String(meta.name ?? '')}` };
+    case 'challenge.created':
+      return { en: `Published squad challenge: ${String(meta.title ?? '')}`, ar: `نشر تحديًا للفرق: ${String(meta.title ?? '')}` };
+    case 'challenge.completed':
+      return { en: `Squad completed challenge: ${String(meta.challenge ?? '')}`, ar: `أنجز فريق التحدي: ${String(meta.challenge ?? '')}` };
     case 'research.consentGiven':
       return { en: 'Joined the research track', ar: 'انضم إلى مسار البحث' };
     case 'research.consentWithdrawn':

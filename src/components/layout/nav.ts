@@ -10,6 +10,7 @@ import {
   Users2,
   Bell,
   ClipboardList,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/data";
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/skills", labelKey: "nav.skills", icon: Network, section: "main", roles: ["employee"] },
   { to: "/surveys", labelKey: "nav.surveys", icon: ClipboardList, section: "main", roles: ["employee"] },
   { to: "/leaderboard", labelKey: "nav.leaderboard", icon: Trophy, section: "community" },
+  { to: "/squads", labelKey: "nav.squads", icon: UsersRound, section: "community" },
   { to: "/kudos", labelKey: "nav.kudos", icon: HeartHandshake, section: "community" },
   { to: "/profile", labelKey: "nav.profile", icon: UserRound, section: "community" },
   { to: "/notifications", labelKey: "nav.notifications", icon: Bell, section: "community" },
