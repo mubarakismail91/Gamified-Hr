@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { SquadChallenge } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { logAudit } from '../common/utils/audit.util';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MIN_RANKED_MEMBERS } from './squad-rules';
@@ -24,7 +25,10 @@ function statusOf(c: Pick<SquadChallenge, 'startsAt' | 'endsAt'>, now = new Date
 export class SquadChallengesService {
   private readonly logger = new Logger(SquadChallengesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ledger: XpLedgerService,
+  ) {}
 
   async create(viewer: AuthenticatedUser, dto: CreateChallengeDto): Promise<ChallengeDto> {
     const startsAt = new Date(dto.startsAt);
@@ -170,7 +174,14 @@ export class SquadChallengesService {
 
       const members = await tx.squadMember.findMany({ where: { squadId, status: 'active' }, select: { userId: true } });
       for (const { userId } of members) {
-        await tx.user.update({ where: { id: userId }, data: { totalXp: { increment: c.bonusXp } } });
+        await this.ledger.record(tx, {
+          userId,
+          amount: c.bonusXp,
+          source: 'challenge_bonus',
+          refType: CHALLENGE_REF,
+          refId: c.id,
+          idempotencyKey: `challenge:${entryId}:${userId}`,
+        });
         await tx.activityLog.create({
           data: {
             userId,

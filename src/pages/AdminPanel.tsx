@@ -47,6 +47,7 @@ import { UserManager } from "@/components/admin/UserManager";
 import { DemographicsPanel } from "@/components/admin/DemographicsPanel";
 import { ResearchExportCard } from "@/components/admin/ResearchExportCard";
 import { PrivacyPanel } from "@/components/admin/PrivacyPanel";
+import { LedgerCheckCard } from "@/components/admin/LedgerCheckCard";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
@@ -296,6 +297,7 @@ export default function AdminPanel() {
         </TabsContent>
 
         <TabsContent value="audit" className="space-y-3">
+          <LedgerCheckCard />
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <ScrollText className="h-4 w-4" />
             {t("admin.auditNote")}

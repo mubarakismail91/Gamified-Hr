@@ -158,6 +158,7 @@ model User {
   createdSquads       Squad[]           @relation("SquadCreator")
   squadMemberships    SquadMember[]     @relation("SquadMemberUser")
   createdChallenges   SquadChallenge[]  @relation("ChallengeCreator")
+  xpTransactions      XpTransaction[]   @relation("XpOwner")
   assignments         QuestAssignment[] @relation("Assignee")
   reviewedAssignments QuestAssignment[] @relation("Reviewer")
   submissions         QuestSubmission[]
@@ -556,5 +557,39 @@ model SquadChallengeEntry {
   completedAt DateTime?
 
   @@unique([squadId, challengeId])
+}
+
+enum XpSource {
+  quest_approved
+  kudos_received
+  challenge_bonus
+  admin_adjustment
+  starting_balance
+  legacy // backfilled from the activity log when the ledger was introduced
+}
+
+/// The XP ledger (item 11): the authoritative record of every XP change. Append-only — database
+/// triggers refuse UPDATE and DELETE, so a mistake is corrected with a new, reversing row.
+/// Each person has their own hash chain: hash = SHA-256 of the row's fields + the previous row's
+/// hash, so any later edit to a row (or a removed row) is detectable. User.totalXp is a cache of
+/// the latest balanceAfter, written only by XpLedgerService.
+model XpTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation("XpOwner", fields: [userId], references: [id])
+  seq            Int      // 1, 2, 3, ... per person
+  amount         Int      // never 0; negative for deductions
+  balanceAfter   Int
+  source         XpSource
+  refType        String?
+  refId          String?
+  /// Unique per real-world event (e.g. "quest:<assignmentId>"), so the same event can't award XP twice.
+  idempotencyKey String   @unique
+  actorId        String?  // who caused it, when it was a person's action (e.g. the admin who awarded it)
+  prevHash       String
+  hash           String
+  createdAt      DateTime
+
+  @@unique([userId, seq])
 }
 

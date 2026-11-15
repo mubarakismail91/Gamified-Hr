@@ -3,6 +3,8 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
 import { SquadChallengesService } from '../squads/squad-challenges.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
+import { randomUUID } from 'crypto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AwardXpDto } from './dto/award-xp.dto';
@@ -22,6 +24,7 @@ export class UsersService {
     private prisma: PrismaService,
     private badges: BadgesService,
     private squadChallenges: SquadChallengesService,
+    private ledger: XpLedgerService,
   ) {}
 
   /** Admin: every user, optionally filtered by the requested department. Manager: always their own department's roster, ignoring whatever was requested — same "own department only" boundary as Quests/Departments. */
@@ -88,7 +91,7 @@ export class UsersService {
         staffType: dto.staffType ?? null,
         departmentId: dto.departmentId ?? null,
         avatarTone: pickAvatarTone(userCount),
-        totalXp: startingXp,
+        totalXp: 0, // set by the ledger below
         mustChangePassword: true,
       },
     });
@@ -96,14 +99,17 @@ export class UsersService {
     // Keep the ActivityLog ledger authoritative for totalXp (see the Phase A
     // schema review) — a starting balance is still an XP event, not a freebie.
     if (startingXp > 0) {
-      await this.prisma.activityLog.create({
-        data: {
+      await this.prisma.$transaction(async (tx) => {
+        await this.ledger.record(tx, {
           userId: user.id,
-          kind: 'xp',
-          textEn: 'Starting balance',
-          textAr: 'الرصيد الابتدائي',
-          xpDelta: startingXp,
-        },
+          amount: startingXp,
+          source: 'starting_balance',
+          idempotencyKey: `start:${user.id}`,
+          actorId,
+        });
+        await tx.activityLog.create({
+          data: { userId: user.id, kind: 'xp', textEn: 'Starting balance', textAr: 'الرصيد الابتدائي', xpDelta: startingXp },
+        });
       });
     }
 
@@ -181,43 +187,60 @@ export class UsersService {
     return { deactivated: true };
   }
 
-  /** Mirrors the demo's awardXp: clamps the resulting total at 0, logs an ActivityLog entry, and notifies the user. */
-  async awardXp(id: string, dto: AwardXpDto, actorId: string): Promise<StaffMemberDto> {
+  /**
+   * Admin XP adjustment through the ledger. Deductions never take a balance below 0, and the
+   * amount actually applied is what gets recorded and shown. An Idempotency-Key (sent by the admin
+   * dialog) makes a double-click or retry return the first result instead of awarding twice.
+   */
+  async awardXp(id: string, dto: AwardXpDto, actorId: string, idempotencyKey?: string): Promise<StaffMemberDto> {
     const existing = await this.prisma.user.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('User not found.');
 
-    const newTotal = Math.max(0, existing.totalXp + dto.amount);
-    const sign = dto.amount >= 0 ? '+' : '';
-    const reasonEn = dto.reason || 'XP adjustment';
-    const reasonAr = dto.reason || 'تعديل نقاط الخبرة';
+    const result = await this.prisma.$transaction(async (tx) => {
+      const r = await this.ledger.record(tx, {
+        userId: id,
+        amount: dto.amount,
+        source: 'admin_adjustment',
+        idempotencyKey: `admin:${idempotencyKey ?? randomUUID()}`,
+        actorId,
+        clampAtZero: true,
+      });
+      if (r.duplicate || r.applied === 0) return r;
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id }, data: { totalXp: newTotal } }),
-      this.prisma.activityLog.create({
-        data: { userId: id, kind: 'xp', textEn: reasonEn, textAr: reasonAr, xpDelta: dto.amount },
-      }),
-      this.prisma.notification.create({
+      const sign = r.applied >= 0 ? '+' : '';
+      await tx.activityLog.create({
         data: {
           userId: id,
           kind: 'xp',
-          titleEn: `${sign}${dto.amount} XP`,
-          titleAr: `${sign}${dto.amount} نقطة خبرة`,
+          textEn: dto.reason || 'XP adjustment',
+          textAr: dto.reason || 'تعديل نقاط الخبرة',
+          xpDelta: r.applied,
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: id,
+          kind: 'xp',
+          titleEn: `${sign}${r.applied} XP`,
+          titleAr: `${sign}${r.applied} نقطة خبرة`,
           bodyEn: dto.reason || 'Awarded by an administrator.',
           bodyAr: dto.reason || 'مُنحت من قبل مسؤول النظام.',
         },
-      }),
-    ]);
-
-    await logAudit(this.prisma, {
-      actorId,
-      action: 'user.xpAwarded',
-      targetType: 'User',
-      targetId: id,
-      metadata: { amount: dto.amount, reason: dto.reason ?? null },
+      });
+      return r;
     });
 
-    await this.badges.evaluate(id);
-    await this.squadChallenges.evaluateForUser(id); // may complete a squad challenge
+    if (!result.duplicate && result.applied !== 0) {
+      await logAudit(this.prisma, {
+        actorId,
+        action: 'user.xpAwarded',
+        targetType: 'User',
+        targetId: id,
+        metadata: { amount: result.applied, requested: dto.amount, reason: dto.reason ?? null },
+      });
+      await this.badges.evaluate(id);
+      await this.squadChallenges.evaluateForUser(id); // may complete a squad challenge
+    }
     return buildStaffMemberDto(this.prisma, id, { includePeriodStats: false });
   }
 

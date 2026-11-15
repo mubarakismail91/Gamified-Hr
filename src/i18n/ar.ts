@@ -481,6 +481,14 @@ export const ar: Dict = {
       eraseFailed: "تعذّر محو الحساب.",
     },
   },
+  ledger: {
+    title: "سلامة سجل نقاط الخبرة",
+    explain:
+      "كل تغيير في النقاط سجل لا يُعدَّل ولا يُحذف ومرتبط بسلسلة تجزئة. يعيد هذا الفحص حساب سلسلة كل شخص ويتأكد من تطابق مجموعه.",
+    verify: "فحص السجل",
+    ok: "سليم بالكامل: {{users}} شخصًا، {{rows}} سجلًا. كل التجزئات والمجاميع متطابقة.",
+    problems: "وُجدت {{n}} مشكلة. ربما عُدّل السجل من خارج التطبيق:",
+  },
   profile: {
     title: "الملف الشخصي",
     memberSince: "عضو منذ {{date}}",
@@ -650,6 +658,7 @@ export const ar: Dict = {
     awardReasonLabel: "السبب (اختياري)",
     awardReasonPlaceholder: "مثال: تقدير في اجتماع القسم",
     awardSubmit: "منح",
+    awardToastClamped: "لا يمكن أن يقل الرصيد عن صفر، لذا طُبّق {{n}} نقطة.",
     awardToastXp: "تم منح {{n}} نقطة.",
     awardToastBadge: "تم منح الوسام.",
     deptTableName: "القسم",

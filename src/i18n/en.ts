@@ -479,6 +479,14 @@ export const en = {
       eraseFailed: "The account could not be erased.",
     },
   },
+  ledger: {
+    title: "XP ledger integrity",
+    explain:
+      "Every XP change is an append-only, hash-chained record. This check re-computes every person's chain and confirms their total matches.",
+    verify: "Verify ledger",
+    ok: "All intact: {{users}} people, {{rows}} records. Every hash and total matches.",
+    problems: "{{n}} problem(s) found. The ledger may have been changed outside the app:",
+  },
   profile: {
     title: "Profile",
     memberSince: "Member since {{date}}",
@@ -648,6 +656,7 @@ export const en = {
     awardReasonLabel: "Reason (optional)",
     awardReasonPlaceholder: "e.g. Recognised at the department meeting",
     awardSubmit: "Award",
+    awardToastClamped: "Balance can\u2019t go below 0, so {{n}} XP was applied.",
     awardToastXp: "Awarded {{n}} XP.",
     awardToastBadge: "Badge awarded.",
     deptTableName: "Department",

@@ -126,6 +126,8 @@ export function UserManager() {
   const [awardAmount, setAwardAmount] = useState(10);
   const [awardReason, setAwardReason] = useState("");
   const [awardBadgeId, setAwardBadgeId] = useState("");
+  /** A fresh key each time the dialog opens: clicking "Award" twice still awards once. */
+  const [awardKey, setAwardKey] = useState("");
 
   const openAward = (u: StaffMember) => {
     setAwarding(u);
@@ -133,14 +135,24 @@ export function UserManager() {
     setAwardAmount(10);
     setAwardReason("");
     setAwardBadgeId(badgeCatalog[0]?.id ?? "");
+    setAwardKey(crypto.randomUUID());
   };
 
   const submitAward = async () => {
     if (!awarding) return;
     try {
       if (awardType === "xp") {
-        await awardXp.mutateAsync({ id: awarding.id, amount: awardAmount, reason: awardReason.trim() || undefined });
-        toast.success(t("admin.awardToastXp", { n: awardAmount }));
+        const updated = await awardXp.mutateAsync({
+          id: awarding.id,
+          amount: awardAmount,
+          reason: awardReason.trim() || undefined,
+          idempotencyKey: awardKey,
+        });
+        // A deduction stops at 0, so report what actually changed.
+        const applied = updated.totalXp - awarding.totalXp;
+        toast.success(
+          applied === awardAmount ? t("admin.awardToastXp", { n: awardAmount }) : t("admin.awardToastClamped", { n: applied }),
+        );
       } else {
         if (!awardBadgeId) return;
         await awardBadge.mutateAsync({ userId: awarding.id, badgeId: awardBadgeId });

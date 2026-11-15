@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { BadgesService } from '../badges/badges.service';
 import { toStaffMemberDto } from '../common/utils/staff-member.mapper';
 import { ZERO_PERIOD_STATS } from '../common/utils/xp-period.util';
@@ -15,6 +16,7 @@ export class KudosService {
   constructor(
     private prisma: PrismaService,
     private badges: BadgesService,
+    private ledger: XpLedgerService,
   ) {}
 
   /** Platform-wide feed, most recent first — same as the demo's Kudos page. */
@@ -74,9 +76,17 @@ export class KudosService {
       data: { fromUserId, toUserId: dto.toUserId, value: dto.value, messageEn: message, messageAr: message },
     });
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: dto.toUserId }, data: { totalXp: { increment: KUDO_XP_BONUS } } }),
-      this.prisma.activityLog.create({
+    await this.prisma.$transaction(async (tx) => {
+      await this.ledger.record(tx, {
+        userId: dto.toUserId,
+        amount: KUDO_XP_BONUS,
+        source: 'kudos_received',
+        refType: 'Kudo',
+        refId: kudo.id,
+        idempotencyKey: `kudo:${kudo.id}`,
+        actorId: fromUserId,
+      });
+      await tx.activityLog.create({
         data: {
           userId: dto.toUserId,
           kind: 'kudo',
@@ -86,8 +96,8 @@ export class KudosService {
           refType: 'Kudo',
           refId: kudo.id,
         },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: dto.toUserId,
           kind: 'social',
@@ -96,8 +106,8 @@ export class KudosService {
           bodyEn: message,
           bodyAr: message,
         },
-      }),
-    ]);
+      });
+    });
 
     await logAudit(this.prisma, {
       actorId: fromUserId,

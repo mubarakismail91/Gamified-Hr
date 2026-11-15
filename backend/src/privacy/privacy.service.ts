@@ -62,6 +62,7 @@ export class PrivacyService {
         this.prisma.refreshToken.findMany({ where: { userId }, select: { createdAt: true, expiresAt: true, revokedAt: true } }),
         this.prisma.auditLog.findMany({ where: { actorId: userId }, select: { action: true, targetType: true, createdAt: true } }),
       ]);
+    const ledger = await this.prisma.xpTransaction.findMany({ where: { userId }, orderBy: { seq: 'asc' } });
 
     await logAudit(this.prisma, { actorId: userId, action: 'privacy.dataExported', targetType: 'User', targetId: userId });
 
@@ -88,6 +89,7 @@ export class PrivacyService {
         updatedAt: user.updatedAt,
       },
       xpAndActivity: activity.map((a) => ({ at: a.createdAt, kind: a.kind, text: a.textEn, xp: a.xpDelta })),
+      xpLedger: ledger.map((t) => ({ at: t.createdAt, amount: t.amount, balanceAfter: t.balanceAfter, source: t.source, hash: t.hash })),
       quests: assignments.map((a) => ({
         quest: a.quest.titleEn,
         status: a.status,

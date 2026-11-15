@@ -50,6 +50,10 @@ function actionLabel(action: string, metadata: unknown): Bi {
         ? { en: `Awarded badge: ${badgeName}`, ar: `منح وسام: ${badgeName}` }
         : { en: 'Awarded badge', ar: 'منح وسامًا' };
     }
+    case 'ledger.verified':
+      return meta.ok
+        ? { en: 'Verified the XP ledger: all intact', ar: 'تحقّق من سجل النقاط: سليم بالكامل' }
+        : { en: `Verified the XP ledger: ${Number(meta.problems ?? 0)} problem(s) found`, ar: `تحقّق من سجل النقاط: ${Number(meta.problems ?? 0)} مشكلة` };
     case 'privacy.dataExported':
       return { en: 'Downloaded their personal data', ar: 'نزّل بياناته الشخصية' };
     case 'user.erased':

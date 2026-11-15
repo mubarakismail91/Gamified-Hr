@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
 import { SquadChallengesService } from '../squads/squad-challenges.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { assignmentInclude, questInclude, toAssignmentDto, toQuestDto, toSubmissionDto } from '../common/utils/quest.mapper';
 import { buildStaffMemberDto } from '../common/utils/build-staff-member';
 import { assertNotExpired } from '../common/utils/quest-expiry.util';
@@ -15,6 +16,7 @@ export class AssignmentsService {
     private prisma: PrismaService,
     private badges: BadgesService,
     private squadChallenges: SquadChallengesService,
+    private ledger: XpLedgerService,
   ) {}
 
   async findMine(employeeId: string): Promise<AssignmentDto[]> {
@@ -108,9 +110,15 @@ export class AssignmentsService {
         where: { id: assignment.id },
         data: { status: 'completed', approvedAt: now, reviewedById: actor.id },
       });
-      await tx.user.update({
-        where: { id: assignment.employeeId },
-        data: { totalXp: { increment: quest.xp } },
+      // One ledger entry per approved assignment, ever (idempotency key), even if called twice.
+      await this.ledger.record(tx, {
+        userId: assignment.employeeId,
+        amount: quest.xp,
+        source: 'quest_approved',
+        refType: 'QuestAssignment',
+        refId: assignment.id,
+        idempotencyKey: `quest:${assignment.id}`,
+        actorId: actor.id,
       });
       await tx.activityLog.create({
         data: {

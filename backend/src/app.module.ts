@@ -28,6 +28,7 @@ import { ResearchModule } from './research/research.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { SquadsModule } from './squads/squads.module';
 import { PrivacyModule } from './privacy/privacy.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -59,6 +60,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     RealtimeModule,
     SquadsModule,
     PrivacyModule,
+    LedgerModule,
   ],
   controllers: [AppController],
   providers: [
