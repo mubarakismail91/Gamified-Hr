@@ -69,7 +69,7 @@ export async function computeBadgeProgress(
 }
 
 /** Longest run of consecutive working days (Sun–Thu; Fri/Sat are the weekend and never break a run) with any activity. */
-function longestWorkingDayRun(timestamps: Date[]): number {
+export function longestWorkingDayRun(timestamps: Date[]): number {
   const days = new Set<number>();
   for (const ts of timestamps) {
     const dayNumber = Math.floor(Date.UTC(ts.getFullYear(), ts.getMonth(), ts.getDate()) / DAY_MS);

@@ -37,3 +37,20 @@ export interface SdtScoresResultDto {
   respondentCount: number;
   suppressed: boolean;
 }
+
+/** One group's SDT averages. `respondents` is null when suppressed, so a small group's exact size isn't revealed either. */
+export interface GroupScoresDto {
+  key: string;
+  label: Bi;
+  respondents: number | null;
+  suppressed: boolean;
+  scores: SdtScoreDto[];
+}
+
+/** SDT averages split by one demographic dimension. Everything is suppressed while the whole round is below the threshold. */
+export interface SdtScoresByGroupDto {
+  dimension: 'generation' | 'staffType';
+  respondentCount: number;
+  suppressed: boolean;
+  groups: GroupScoresDto[];
+}

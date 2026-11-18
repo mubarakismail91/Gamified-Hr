@@ -1,0 +1,22 @@
+name: Keep API awake
+
+# Optional. Render's free web service sleeps after 15 minutes without traffic and takes about a
+# minute to wake. During Saudi working hours (Sun-Thu, 07:00-19:00 Riyadh) this pings /health every
+# 10 minutes so staff don't hit a cold start. GitHub may delay scheduled runs by a few minutes.
+#
+# Off until you set the repository VARIABLE (not secret) KEEP_AWAKE_URL, e.g.
+#   https://iu-hr-api.onrender.com/health
+
+on:
+  schedule:
+    - cron: "*/10 4-15 * * 0-4" # UTC: 04:00-15:59 Sun-Thu = 07:00-18:59 Riyadh
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: vars.KEEP_AWAKE_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl --silent --show-error --fail --max-time 90 "${{ vars.KEEP_AWAKE_URL }}"

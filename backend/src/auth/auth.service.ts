@@ -7,9 +7,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { buildStaffMemberDto } from '../common/utils/build-staff-member';
 import { generateOpaqueToken, hashToken } from '../common/utils/token.util';
 import { parseDurationMs } from '../common/utils/duration.util';
+import { assertPasswordAllowed } from './password-policy';
+import { hashPassword } from '../common/utils/password-hash';
 import type { StaffMemberDto } from '../common/dto/staff-member.dto';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
+
+/**
+ * Where the refresh cookie is sent back. '/auth' when the browser calls the API directly; '/api/auth'
+ * when the frontend reaches the API through a same-site '/api' proxy (Vercel rewrite or Caddy), which
+ * keeps the cookie first-party so Safari/Chrome don't block it (item 12).
+ */
+const cookiePath = () => process.env.COOKIE_PATH ?? '/auth';
+
+/** 'lax' when frontend and API share a site (proxy, or local dev); 'none' only for a cross-site API. */
+function cookieSameSite(): 'lax' | 'strict' | 'none' {
+  const v = process.env.COOKIE_SAME_SITE;
+  if (v === 'lax' || v === 'strict' || v === 'none') return v;
+  return process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+}
 
 @Injectable()
 export class AuthService {
@@ -70,7 +86,7 @@ export class AuthService {
         data: { revokedAt: new Date() },
       });
     }
-    res.clearCookie(REFRESH_COOKIE_NAME, { path: '/auth' });
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: cookiePath() });
   }
 
   async me(userId: string): Promise<StaffMemberDto> {
@@ -81,12 +97,15 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) throw new BadRequestException('Current password is incorrect.');
+    assertPasswordAllowed(newPassword, { email: user.email, sameAsCurrent: await bcrypt.compare(newPassword, user.passwordHash) });
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await hashPassword(newPassword);
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },
     });
+    // Sign out every other session that was using the old password.
+    await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
   // ---------------------------------------------------------------------
@@ -115,8 +134,8 @@ export class AuthService {
       secure: this.config.get('NODE_ENV') === 'production',
       // Hosted frontend and API live on different sites, so the cookie must be
       // allowed cross-site there; 'lax' is enough (and safer) in local dev.
-      sameSite: this.config.get('NODE_ENV') === 'production' ? 'none' : 'lax',
-      path: '/auth', // only sent back to /auth/refresh and /auth/logout, not every request
+      sameSite: cookieSameSite(),
+      path: cookiePath(), // only sent back to the refresh/logout routes, not every request
       expires: expiresAt,
     });
   }

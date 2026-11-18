@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { validateEnv } from './config/env.validation';
+import { AppThrottlerGuard, generalLimit } from './common/guards/app-throttler.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -20,13 +24,21 @@ import { SkillsModule } from './skills/skills.module';
 import { ActivityModule } from './activity/activity.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { SurveysModule } from './surveys/surveys.module';
+import { ResearchModule } from './research/research.module';
+import { RealtimeModule } from './realtime/realtime.module';
+import { SquadsModule } from './squads/squads.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
     // isGlobal: every module can inject ConfigService without re-importing this.
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // In-memory counters: fine for one API instance; several instances would need a shared store (Redis).
+    ScheduleModule.forRoot(), // the daily retention job (PrivacyService.scheduledRetention)
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: generalLimit }]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -44,6 +56,11 @@ import { RolesGuard } from './common/guards/roles.guard';
     ActivityModule,
     ProfilesModule,
     SurveysModule,
+    ResearchModule,
+    RealtimeModule,
+    SquadsModule,
+    PrivacyModule,
+    LedgerModule,
   ],
   controllers: [AppController],
   providers: [
@@ -52,6 +69,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     // then RolesGuard can read req.user.role. Both are global — every future
     // controller is auth-protected and role-checkable with zero extra wiring,
     // opting out per-route only via @Public()/@Roles().
+    // Rate limiting runs first, so even unauthenticated floods (e.g. login guessing) are limited.
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as notificationApi from "@/api/notificationApi";
+import { useRealtime } from "@/realtime/RealtimeContext";
 
 export function useMyNotificationsQuery() {
+  const { connected } = useRealtime();
   return useQuery({
     queryKey: ["notifications", "mine"] as const,
     queryFn: notificationApi.getMyNotifications,
-    // No push/websocket channel exists yet — poll so a Manager/Employee
-    // actually sees a new notification without navigating or refocusing the tab.
-    refetchInterval: 30_000,
+    // New notifications are pushed over the live connection (RealtimeContext). Poll every 30 s
+    // only while that connection is down, e.g. if a proxy blocks WebSockets.
+    refetchInterval: connected ? false : 30_000,
   });
 }
 

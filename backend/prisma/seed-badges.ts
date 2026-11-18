@@ -1,9 +1,5 @@
-import 'dotenv/config';
-import { Prisma, PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+import { Prisma, type PrismaClient } from '@prisma/client';
+import { runScript } from './prisma-client';
 
 /**
  * `criteria` is the automatic rule evaluated by BadgesService (see
@@ -214,7 +210,8 @@ const BADGES = [
   },
 ];
 
-async function main() {
+/** Creates or updates the badge catalog. Safe to re-run. */
+export async function seedBadges(prisma: PrismaClient): Promise<number> {
   for (const badge of BADGES) {
     const data = { ...badge, criteria: badge.criteria ?? Prisma.DbNull };
     await prisma.badge.upsert({
@@ -223,14 +220,10 @@ async function main() {
       update: data,
     });
   }
-  console.log(`Seeded ${BADGES.length} badges.`);
+  return BADGES.length;
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// `npm run seed:badges`
+if (require.main === module) {
+  runScript(async (prisma) => console.log(`Seeded ${await seedBadges(prisma)} badges.`));
+}

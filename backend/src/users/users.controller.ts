@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,8 +39,16 @@ export class UsersController {
 
   @Roles('admin')
   @Post(':id/award-xp')
-  awardXp(@Param('id') id: string, @Body() dto: AwardXpDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.users.awardXp(id, dto, user.id);
+  awardXp(
+    @Param('id') id: string,
+    @Body() dto: AwardXpDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (idempotencyKey !== undefined && !/^[A-Za-z0-9_-]{8,100}$/.test(idempotencyKey)) {
+      throw new BadRequestException('Idempotency-Key must be 8–100 letters, digits, "-" or "_".');
+    }
+    return this.users.awardXp(id, dto, user.id, idempotencyKey);
   }
 
   @Roles('admin')

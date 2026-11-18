@@ -1,22 +1,27 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { getResearchKey, researchCode } from '../research/research-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { logAudit } from '../common/utils/audit.util';
 import { CreateSurveyRoundDto } from './dto/create-survey-round.dto';
 import { DEFAULT_QUESTION_KEYS, SURVEY_QUESTION_BANK } from './survey-question-bank';
 import { SubmitSurveyResponseDto } from './dto/submit-survey-response.dto';
-import type { ActiveSurveyDto, SdtScoresResultDto, SurveyRoundDto, SurveyRoundStatus } from './dto/survey.dto';
+import type {
+  ActiveSurveyDto,
+  SdtScale,
+  SdtScoresByGroupDto,
+  SdtScoresResultDto,
+  SurveyRoundDto,
+  SurveyRoundStatus,
+} from './dto/survey.dto';
+import { averageByScale, scoreGroups } from './sdt-scoring';
+import { GROUPS_BY_DIMENSION, NOT_STATED, toResponseTag, type DemographicDimension } from '../common/demographics';
 
 /** Below this many respondents, averages aren't reported — same principle the original plan flagged as non-negotiable for survey anonymity. */
-const K_ANONYMITY_THRESHOLD = 5;
-
-const SCALE_LABEL: Record<string, { en: string; ar: string }> = {
-  autonomy: { en: 'Autonomy', ar: 'الاستقلالية' },
-  competence: { en: 'Competence', ar: 'الكفاءة' },
-  relatedness: { en: 'Relatedness', ar: 'الانتماء' },
-};
+export const K_ANONYMITY_THRESHOLD = 5;
 
 /** Never stored — derived from opensAt/closesAt vs. now() so it can't drift out of sync with the dates. */
-function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyRoundStatus {
+export function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyRoundStatus {
   if (now < opensAt) return 'scheduled';
   if (closesAt && now > closesAt) return 'closed';
   return 'open';
@@ -24,7 +29,10 @@ function computeStatus(opensAt: Date, closesAt: Date | null, now: Date): SurveyR
 
 @Injectable()
 export class SurveysService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
 
   async findAllRounds(): Promise<SurveyRoundDto[]> {
     const rounds = await this.prisma.surveyRound.findMany({
@@ -143,55 +151,92 @@ export class SurveysService {
       }
     }
 
+    // Copy the respondent's coarse group onto the response (no user id, no timestamp), so results can be
+    // compared by group without the answers ever being linked back to a person.
+    const respondent = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { generation: true, staffType: true },
+    });
+
+    // Research track (Track B): if this employee has consented, ALSO store a copy under their research
+    // code (never their user id). The anonymous copy above is stored either way.
+    const key = getResearchKey(this.config);
+    const consented = key ? await this.prisma.researchConsent.findUnique({ where: { userId } }) : null;
+
     await this.prisma.$transaction([
-      this.prisma.surveyResponse.create({ data: { roundId, answers: dto.answers } }),
+      this.prisma.surveyResponse.create({
+        data: {
+          roundId,
+          answers: dto.answers,
+          generation: toResponseTag(respondent.generation),
+          staffType: toResponseTag(respondent.staffType),
+        },
+      }),
       this.prisma.surveyParticipation.create({ data: { roundId, userId } }),
+      ...(key && consented
+        ? [this.prisma.researchResponse.create({ data: { code: researchCode(key, userId), roundId, answers: dto.answers } })]
+        : []),
     ]);
   }
 
   /** The given round's averages, or the latest closed round's if none given. Suppressed under the k-anonymity threshold. */
   async getScores(roundId?: string): Promise<SdtScoresResultDto> {
-    const round = roundId
-      ? await this.prisma.surveyRound.findUnique({ where: { id: roundId } })
-      : await this.prisma.surveyRound.findFirst({
-          where: { closesAt: { lt: new Date() } },
-          orderBy: { closesAt: 'desc' },
-        });
-
+    const round = await this.findRoundForScores(roundId);
     if (!round) return { scores: [], respondentCount: 0, suppressed: true };
 
-    const [responses, questions] = await Promise.all([
+    const [responses, scaleById] = await Promise.all([
       this.prisma.surveyResponse.findMany({ where: { roundId: round.id }, select: { answers: true } }),
-      this.prisma.surveyQuestion.findMany({ where: { roundId: round.id } }),
+      this.scaleByQuestionId(round.id),
     ]);
 
     const respondentCount = responses.length;
     if (respondentCount < K_ANONYMITY_THRESHOLD) {
       return { scores: [], respondentCount, suppressed: true };
     }
+    return { scores: averageByScale(responses, scaleById), respondentCount, suppressed: false };
+  }
 
-    const scaleById = new Map(questions.map((q) => [q.id, q.scale]));
-    const sums: Record<string, { total: number; count: number }> = {
-      autonomy: { total: 0, count: 0 },
-      competence: { total: 0, count: 0 },
-      relatedness: { total: 0, count: 0 },
-    };
+  /**
+   * The same averages split by generation or by job role, using the group tag stored on each
+   * response. Small groups are suppressed (see scoreGroups for the rules), and nothing is
+   * shown while the whole round is below the threshold.
+   */
+  async getScoresByGroup(dimension: DemographicDimension, roundId?: string): Promise<SdtScoresByGroupDto> {
+    const round = await this.findRoundForScores(roundId);
+    if (!round) return { dimension, respondentCount: 0, suppressed: true, groups: [] };
 
-    for (const r of responses) {
-      const answers = r.answers as unknown as Record<string, number>;
-      for (const [questionId, value] of Object.entries(answers)) {
-        const scale = scaleById.get(questionId);
-        if (!scale) continue;
-        sums[scale].total += value;
-        sums[scale].count += 1;
-      }
+    const [responses, scaleById] = await Promise.all([
+      this.prisma.surveyResponse.findMany({
+        where: { roundId: round.id },
+        select: { answers: true, generation: true, staffType: true },
+      }),
+      this.scaleByQuestionId(round.id),
+    ]);
+
+    const respondentCount = responses.length;
+    if (respondentCount < K_ANONYMITY_THRESHOLD) {
+      return { dimension, respondentCount, suppressed: true, groups: [] };
     }
 
-    const scores = (['autonomy', 'competence', 'relatedness'] as const).map((scale) => ({
-      scale: SCALE_LABEL[scale],
-      score: sums[scale].count > 0 ? Math.round((sums[scale].total / sums[scale].count) * 10) / 10 : 0,
-    }));
+    const tagOf = (r: (typeof responses)[number]): string | null => r[dimension];
+    const groups = [
+      ...GROUPS_BY_DIMENSION[dimension].map((g) => ({ ...g, responses: responses.filter((r) => tagOf(r) === g.key) })),
+      { ...NOT_STATED, responses: responses.filter((r) => tagOf(r) === null) },
+    ];
+    return { dimension, respondentCount, suppressed: false, groups: scoreGroups(groups, scaleById, K_ANONYMITY_THRESHOLD) };
+  }
 
-    return { scores, respondentCount, suppressed: false };
+  private findRoundForScores(roundId?: string) {
+    return roundId
+      ? this.prisma.surveyRound.findUnique({ where: { id: roundId } })
+      : this.prisma.surveyRound.findFirst({
+          where: { closesAt: { lt: new Date() } },
+          orderBy: { closesAt: 'desc' },
+        });
+  }
+
+  private async scaleByQuestionId(roundId: string): Promise<Map<string, SdtScale>> {
+    const questions = await this.prisma.surveyQuestion.findMany({ where: { roundId } });
+    return new Map(questions.map((q) => [q.id, q.scale as SdtScale]));
   }
 }

@@ -67,7 +67,34 @@ in memory, so reloading the page signs you out.
 | `npm run build` | Type-check and build the frontend to `dist/` |
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run start:dev` (in `backend/`) | Run the API in watch mode |
-| `npm run test` (in `backend/`) | Run backend unit tests |
+| `npm test` | Frontend unit tests (Vitest): rank math, role permissions, EN/AR dictionaries |
+| `npm test` (in `backend/`) | Backend unit tests (Jest): badge rules, streaks, k-anonymity, survey validation |
+| `npm run test:e2e` (in `backend/`) | API tests against a separate `iu_hr_test` database: RBAC, quest lifecycle, surveys, duplicate approvals |
+
+### Backup and reset (before a demo or the pilot)
+
+Run these in `backend/`:
+
+| Command | What it does |
+| --- | --- |
+| `npm run db:backup` | Full backup of the database in `DATABASE_URL` to `backend/backups/<db>-<time>.dump` (git-ignored). Uses a `pg_dump` at least as new as the server (Postgres.app's, or set `PG_DUMP_PATH`). |
+| `npm run db:reset -- --confirm=<database name>` | **Deletes all data** (users, quests, XP ledger, surveys, audit trail, uploaded files), keeps the schema, then seeds the pilot baseline: the admin from `SEED_ADMIN_*`, the badge catalog and the skill catalog. Refuses to run unless `--confirm` names the database exactly. |
+
+To restore a backup:
+
+```bash
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" backend/backups/<file>.dump
+```
+
+After a reset the admin signs in with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `backend/.env`.
+
+### Tests
+
+The API tests create and migrate their own database, `iu_hr_test`, using the
+credentials in `backend/.env` (or `TEST_DATABASE_URL` if set). They empty that
+database before each test file and refuse to run against any database whose
+name doesn't contain `test`, so the dev database is never touched. GitHub
+Actions runs all three suites on every push (`.github/workflows/tests.yml`).
 
 ## Project structure
 
@@ -89,6 +116,6 @@ Doc/                  project reports and presentations
 
 ## Notes
 
-- `public/iu-mark.svg` is a neutral placeholder emblem, not the official university crest.
+- `public/iu-mark.svg` is the IU emblem used across the app (it replaced the original placeholder). Confirm usage rights with the university before a public launch.
 - Survey questions are adapted from common workplace SDT measures (Deci et al., 2001; Van den Broeck et al., 2010). The wording is paraphrased and has not been validated as a set.
 - Dates render in Gregorian and Hijri (Umm al-Qura) via the `Intl` API.

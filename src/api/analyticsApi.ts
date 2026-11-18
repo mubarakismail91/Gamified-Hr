@@ -36,8 +36,21 @@ export interface DemographicRow {
   value: number;
 }
 
+/** avgXp / participationRate are null when the group has fewer than minGroupSize people. */
+export interface EngagementRow {
+  key: Bi;
+  headcount: number;
+  avgXp: number | null;
+  participationRate: number | null;
+  suppressed: boolean;
+}
+
 export interface Demographics {
   byGender: DemographicRow[];
+  byGeneration: DemographicRow[];
+  byStaffType: DemographicRow[];
+  engagement: { generation: EngagementRow[]; staffType: EngagementRow[] };
+  minGroupSize: number;
 }
 
 export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {

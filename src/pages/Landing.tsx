@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Compass, Gauge, HeartHandshake, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,12 @@ export default function Landing() {
       await login(email, password);
       navigate("/dashboard", { replace: true });
     } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 429) {
+        // Rate limited (too many attempts for this account): say how long to wait.
+        const seconds = Number(err.response.headers["retry-after"]) || 900;
+        setError(t("landing.tooManyAttempts", { minutes: Math.max(1, Math.ceil(seconds / 60)) }));
+        return;
+      }
       const message = isAxiosError(err) ? err.response?.data?.message : undefined;
       setError(typeof message === "string" ? message : t("landing.loginError"));
     } finally {
@@ -158,7 +164,9 @@ export default function Landing() {
 
       <footer className="border-t bg-background">
         <div className="container py-5 text-center text-xs text-muted-foreground">
-          {t("landing.footerNote")}
+          <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            {t("privacy.title")}
+          </Link>
         </div>
       </footer>
     </div>

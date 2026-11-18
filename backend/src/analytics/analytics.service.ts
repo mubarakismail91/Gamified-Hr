@@ -2,10 +2,20 @@ import { Injectable } from '@nestjs/common';
 import type { Department, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Bi } from '../common/dto/staff-member.dto';
+import {
+  GROUPS_BY_DIMENSION,
+  MIN_GROUP_SIZE,
+  NOT_RECORDED,
+  NOT_STATED,
+  PREFER_NOT_TO_SAY,
+  type DemographicDimension,
+} from '../common/demographics';
 import type {
   AnalyticsOverviewDto,
   BadgeDistributionDto,
+  DemographicRowDto,
   DemographicsDto,
+  EngagementRowDto,
   ParticipationPointDto,
   XpByDepartmentDto,
 } from './dto/analytics.dto';
@@ -77,15 +87,61 @@ export class AnalyticsService {
   }
 
   async getDemographics(): Promise<DemographicsDto> {
-    const [male, female] = await Promise.all([
-      this.prisma.user.count({ where: { role: 'employee', isActive: true, gender: 'male' } }),
-      this.prisma.user.count({ where: { role: 'employee', isActive: true, gender: 'female' } }),
-    ]);
+    const employees = await this.prisma.user.findMany({
+      where: { role: 'employee', isActive: true },
+      select: { id: true, gender: true, generation: true, staffType: true, totalXp: true },
+    });
+    const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS);
+    const activeRows = employees.length
+      ? await this.prisma.activityLog.findMany({
+          where: { userId: { in: employees.map((e) => e.id) }, createdAt: { gte: thirtyDaysAgo } },
+          select: { userId: true },
+          distinct: ['userId'],
+        })
+      : [];
+    const active = new Set(activeRows.map((r) => r.userId));
+
+    const count = (pred: (e: (typeof employees)[number]) => boolean) => employees.filter(pred).length;
+
+    /** Headcount per group, keeping "Prefer not to say" and "Not recorded" apart (the admin needs to see what's missing). */
+    const headcounts = (dim: DemographicDimension): DemographicRowDto[] => [
+      ...GROUPS_BY_DIMENSION[dim].map((g) => ({ key: g.label, value: count((e) => e[dim] === g.key) })),
+      { key: PREFER_NOT_TO_SAY.label, value: count((e) => e[dim] === 'undisclosed') },
+      { key: NOT_RECORDED.label, value: count((e) => e[dim] === null) },
+    ];
+
+    /** Average XP and 30-day participation per group; both hidden for groups below MIN_GROUP_SIZE. */
+    const engagement = (dim: DemographicDimension): EngagementRowDto[] => {
+      const groups = [
+        ...GROUPS_BY_DIMENSION[dim].map((g) => ({ label: g.label, members: employees.filter((e) => e[dim] === g.key) })),
+        { label: NOT_STATED.label, members: employees.filter((e) => e[dim] === null || e[dim] === 'undisclosed') },
+      ];
+      return groups.map(({ label, members }) => {
+        const headcount = members.length;
+        if (headcount < MIN_GROUP_SIZE) {
+          return { key: label, headcount, avgXp: null, participationRate: null, suppressed: true };
+        }
+        const totalXp = members.reduce((sum, e) => sum + e.totalXp, 0);
+        const activeCount = members.filter((e) => active.has(e.id)).length;
+        return {
+          key: label,
+          headcount,
+          avgXp: Math.round(totalXp / headcount),
+          participationRate: Math.round((activeCount / headcount) * 100),
+          suppressed: false,
+        };
+      });
+    };
+
     return {
       byGender: [
-        { key: { en: 'Male', ar: 'ذكر' }, value: male },
-        { key: { en: 'Female', ar: 'أنثى' }, value: female },
+        { key: { en: 'Male', ar: 'ذكر' }, value: count((e) => e.gender === 'male') },
+        { key: { en: 'Female', ar: 'أنثى' }, value: count((e) => e.gender === 'female') },
       ],
+      byGeneration: headcounts('generation'),
+      byStaffType: headcounts('staffType'),
+      engagement: { generation: engagement('generation'), staffType: engagement('staffType') },
+      minGroupSize: MIN_GROUP_SIZE,
     };
   }
 

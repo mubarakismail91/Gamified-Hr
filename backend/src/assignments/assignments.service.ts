@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadgesService } from '../badges/badges.service';
+import { SquadChallengesService } from '../squads/squad-challenges.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { assignmentInclude, questInclude, toAssignmentDto, toQuestDto, toSubmissionDto } from '../common/utils/quest.mapper';
 import { buildStaffMemberDto } from '../common/utils/build-staff-member';
 import { assertNotExpired } from '../common/utils/quest-expiry.util';
@@ -13,6 +15,8 @@ export class AssignmentsService {
   constructor(
     private prisma: PrismaService,
     private badges: BadgesService,
+    private squadChallenges: SquadChallengesService,
+    private ledger: XpLedgerService,
   ) {}
 
   async findMine(employeeId: string): Promise<AssignmentDto[]> {
@@ -91,25 +95,32 @@ export class AssignmentsService {
   async approve(assignmentId: string, actor: AuthenticatedUser): Promise<AssignmentDto> {
     const { assignment, quest } = await this.reviewableOrThrow(assignmentId, actor);
 
-    const pending = await this.prisma.questSubmission.findFirst({
-      where: { assignmentId: assignment.id, status: 'pending' },
-    });
-    if (!pending) throw new BadRequestException('No pending submission to approve.');
+    const updatedAssignment = await this.prisma.$transaction(async (tx) => {
+      // Claim the submission first. The conditional UPDATE locks the row, so if two approvals (or an
+      // approval and a rejection) arrive at once, the second one waits, then finds nothing still
+      // 'pending' and is refused — the XP below can only ever be awarded once.
+      const now = new Date();
+      const claimed = await tx.questSubmission.updateMany({
+        where: { assignmentId: assignment.id, status: 'pending' },
+        data: { status: 'approved', reviewedAt: now },
+      });
+      if (claimed.count === 0) throw new BadRequestException('No pending submission to approve.');
 
-    const [updatedAssignment] = await this.prisma.$transaction([
-      this.prisma.questAssignment.update({
+      const updated = await tx.questAssignment.update({
         where: { id: assignment.id },
-        data: { status: 'completed', approvedAt: new Date(), reviewedById: actor.id },
-      }),
-      this.prisma.questSubmission.update({
-        where: { id: pending.id },
-        data: { status: 'approved', reviewedAt: new Date() },
-      }),
-      this.prisma.user.update({
-        where: { id: assignment.employeeId },
-        data: { totalXp: { increment: quest.xp } },
-      }),
-      this.prisma.activityLog.create({
+        data: { status: 'completed', approvedAt: now, reviewedById: actor.id },
+      });
+      // One ledger entry per approved assignment, ever (idempotency key), even if called twice.
+      await this.ledger.record(tx, {
+        userId: assignment.employeeId,
+        amount: quest.xp,
+        source: 'quest_approved',
+        refType: 'QuestAssignment',
+        refId: assignment.id,
+        idempotencyKey: `quest:${assignment.id}`,
+        actorId: actor.id,
+      });
+      await tx.activityLog.create({
         data: {
           userId: assignment.employeeId,
           kind: 'quest',
@@ -119,8 +130,8 @@ export class AssignmentsService {
           refType: 'Quest',
           refId: quest.id,
         },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: assignment.employeeId,
           kind: 'xp',
@@ -129,8 +140,9 @@ export class AssignmentsService {
           bodyEn: `"${quest.titleEn}" was approved by your manager.`,
           bodyAr: `تمت الموافقة على "${quest.titleAr}" من قِبل مديرك.`,
         },
-      }),
-    ]);
+      });
+      return updated;
+    });
 
     // Completing a quest on a skill path starts (follows) that path for the employee; the level itself is
     // derived from their completed quests, so there's nothing else to record.
@@ -151,27 +163,26 @@ export class AssignmentsService {
     });
 
     await this.badges.evaluate(assignment.employeeId);
+    await this.squadChallenges.evaluateForUser(assignment.employeeId); // may complete a squad challenge
     return toAssignmentDto(updatedAssignment);
   }
 
   async reject(assignmentId: string, note: string | undefined, actor: AuthenticatedUser): Promise<AssignmentDto> {
     const { assignment, quest } = await this.reviewableOrThrow(assignmentId, actor);
 
-    const pending = await this.prisma.questSubmission.findFirst({
-      where: { assignmentId: assignment.id, status: 'pending' },
-    });
-    if (!pending) throw new BadRequestException('No pending submission to reject.');
+    const updatedAssignment = await this.prisma.$transaction(async (tx) => {
+      // Same claim-first pattern as approve(): only one review of a submission can ever win.
+      const claimed = await tx.questSubmission.updateMany({
+        where: { assignmentId: assignment.id, status: 'pending' },
+        data: { status: 'denied', reviewedAt: new Date(), feedback: note },
+      });
+      if (claimed.count === 0) throw new BadRequestException('No pending submission to reject.');
 
-    const [updatedAssignment] = await this.prisma.$transaction([
-      this.prisma.questAssignment.update({
+      const updated = await tx.questAssignment.update({
         where: { id: assignment.id },
         data: { status: 'accepted', rejectionNote: note, submittedAt: null },
-      }),
-      this.prisma.questSubmission.update({
-        where: { id: pending.id },
-        data: { status: 'denied', reviewedAt: new Date(), feedback: note },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: assignment.employeeId,
           kind: 'quest',
@@ -184,8 +195,9 @@ export class AssignmentsService {
             ? `مهمة "${quest.titleAr}" تحتاج مراجعة: ${note}`
             : `أُعيدت مهمة "${quest.titleAr}" لمزيد من العمل.`,
         },
-      }),
-    ]);
+      });
+      return updated;
+    });
 
     await logAudit(this.prisma, {
       actorId: actor.id,

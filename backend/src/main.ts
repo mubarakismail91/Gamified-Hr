@@ -1,37 +1,18 @@
+import { availableParallelism } from 'os';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
-import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
-import { UPLOAD_DIR } from './submissions/multer.config';
+import { configureApp } from './app.setup';
+
+// Password hashing (bcrypt) runs on libuv's thread pool, which has only 4 threads by default.
+// Use one per CPU core so a sign-in rush can use the whole machine (load test, item 8).
+// Must be set before the pool's first use; nothing above this line uses it.
+process.env.UV_THREADPOOL_SIZE ??= String(Math.max(4, availableParallelism()));
 
 async function bootstrap() {
-  // Multer's diskStorage doesn't create its destination folder — first quest
-  // submission would otherwise fail with ENOENT.
-  mkdirSync(UPLOAD_DIR, { recursive: true });
-
   const app = await NestFactory.create(AppModule);
 
-  // Refresh tokens live in an httpOnly cookie (see Phase B) — needs the parser
-  // wired up before any route reads req.cookies.
-  app.use(cookieParser());
-
-  // credentials: true lets the browser send/receive the httpOnly refresh
-  // cookie cross-origin (frontend on :5173, API on :4000 in dev).
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
-    credentials: true,
-  });
-
-  // Strips unknown fields and rejects requests that don't match a DTO's
-  // shape/types — this is the "class-validator" layer the plan called for.
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // CORS, cookie parser and the global ValidationPipe (shared with the API tests).
+  configureApp(app);
 
   await app.listen(process.env.PORT ?? 4000);
 }

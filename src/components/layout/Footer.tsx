@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 export function Footer() {
   const { t } = useTranslation();
@@ -9,7 +10,11 @@ export function Footer() {
         <p>
           © {year} {t("common.university")} — {t("common.appName")}
         </p>
-        <p className="max-w-md">{t("landing.footerNote")}</p>
+        <p>
+          <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            {t("privacy.title")}
+          </Link>
+        </p>
       </div>
     </footer>
   );

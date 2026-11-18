@@ -23,6 +23,13 @@ export function useSdtScoresQuery(roundId?: string) {
   });
 }
 
+export function useSdtScoresByGroupQuery(dimension: surveyApi.DemographicDimension, roundId?: string) {
+  return useQuery({
+    queryKey: ["surveys", "scores-by-group", dimension, roundId ?? "latest"] as const,
+    queryFn: () => surveyApi.getSdtScoresByGroup(dimension, roundId),
+  });
+}
+
 export function useActiveSurveysQuery() {
   return useQuery({
     queryKey: ["surveys", "active"] as const,

@@ -15,7 +15,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor(config: ConfigService) {
-    const adapter = new PrismaPg({ connectionString: config.getOrThrow<string>('DATABASE_URL') });
+    // Up to DB_POOL_SIZE (default 20) simultaneous database connections per API instance;
+    // the driver's default of 10 queued requests under the load test (item 8).
+    const adapter = new PrismaPg({
+      connectionString: config.getOrThrow<string>('DATABASE_URL'),
+      max: Number(config.get('DB_POOL_SIZE') ?? 20),
+    });
     super({ adapter });
   }
 

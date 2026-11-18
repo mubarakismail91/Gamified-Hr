@@ -1,4 +1,5 @@
 import { IsEmail, IsIn, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { GENERATION_VALUES, STAFF_TYPE_VALUES } from '../../common/demographics';
 
 export class CreateUserDto {
   @IsString()
@@ -27,6 +28,16 @@ export class CreateUserDto {
   @IsOptional()
   @IsIn(['male', 'female'])
   gender?: 'male' | 'female';
+
+  /** Optional. null = not recorded; 'undisclosed' = prefers not to say. Never a birth year. */
+  @IsOptional()
+  @IsIn(GENERATION_VALUES)
+  generation?: (typeof GENERATION_VALUES)[number] | null;
+
+  /** Optional. Academic or administrative staff; same null/'undisclosed' convention. */
+  @IsOptional()
+  @IsIn(STAFF_TYPE_VALUES)
+  staffType?: (typeof STAFF_TYPE_VALUES)[number] | null;
 
   @IsOptional()
   @IsInt()

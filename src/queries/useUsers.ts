@@ -58,8 +58,8 @@ export function useAwardXpMutation() {
   const invalidate = useInvalidateUsers();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, amount, reason }: { id: string; amount: number; reason?: string }) =>
-      userApi.awardXp(id, amount, reason),
+    mutationFn: ({ id, amount, reason, idempotencyKey }: { id: string; amount: number; reason?: string; idempotencyKey?: string }) =>
+      userApi.awardXp(id, amount, reason, idempotencyKey),
     onSuccess: () => {
       invalidate();
       queryClient.invalidateQueries({ queryKey: ["notifications"] });

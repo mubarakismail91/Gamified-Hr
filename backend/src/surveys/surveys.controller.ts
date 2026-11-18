@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { DEMOGRAPHIC_DIMENSIONS, type DemographicDimension } from '../common/demographics';
 import { SurveysService } from './surveys.service';
 import { CreateSurveyRoundDto } from './dto/create-survey-round.dto';
 import { SubmitSurveyResponseDto } from './dto/submit-survey-response.dto';
@@ -31,6 +32,15 @@ export class SurveysController {
   @Get('scores')
   getScores(@Query('roundId') roundId?: string) {
     return this.surveys.getScores(roundId);
+  }
+
+  @Roles('admin')
+  @Get('scores/by-group')
+  getScoresByGroup(@Query('dimension') dimension: string, @Query('roundId') roundId?: string) {
+    if (!DEMOGRAPHIC_DIMENSIONS.includes(dimension as DemographicDimension)) {
+      throw new BadRequestException('dimension must be "generation" or "staffType".');
+    }
+    return this.surveys.getScoresByGroup(dimension as DemographicDimension, roundId);
   }
 
   // Only Employees participate — same scoping as the leaderboard, quests, and kudos.

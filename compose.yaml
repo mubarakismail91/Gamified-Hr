@@ -1,0 +1,84 @@
+# Self-host option (item 12): the whole system on one Linux server with Docker.
+#   cp deploy/.env.example deploy/.env   # then fill it in
+#   docker compose --env-file deploy/.env up -d --build
+# See DEPLOYMENT.md -> "Self-hosting with Docker".
+name: iu-hr
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: iu_hr
+      POSTGRES_USER: iu_hr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      TZ: Asia/Riyadh
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iu_hr -d iu_hr"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://iu_hr:${POSTGRES_PASSWORD}@db:5432/iu_hr
+      NODE_ENV: production
+      PORT: "4000"
+      CORS_ORIGIN: ${PUBLIC_URL:?set PUBLIC_URL in deploy/.env}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      RESEARCH_KEY: ${RESEARCH_KEY:-}
+      COOKIE_PATH: /api/auth
+      COOKIE_SAME_SITE: lax
+      TRUST_PROXY_HOPS: "1"
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      TZ: Asia/Riyadh
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/.env}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy-data:/data # certificates: keep this volume
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  backup:
+    image: postgres:18
+    entrypoint: ["sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGDATABASE: iu_hr
+      PGUSER: iu_hr
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_AT: ${BACKUP_AT:-02:00}
+      KEEP_DAILY: "7"
+      KEEP_WEEKLY: "4"
+      TZ: Asia/Riyadh
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

@@ -11,6 +11,8 @@ interface AuthValue {
   authLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-reads the signed-in user (e.g. after a live notification says their XP changed). Resolves false if the session is gone. */
+  reloadUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -59,9 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, [queryClient]);
 
+  const reloadUser = useCallback(async () => {
+    try {
+      // Goes through the API client, so an expired access token is silently refreshed first.
+      setAuthUser(await authApi.me());
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const value = useMemo<AuthValue>(
-    () => ({ authUser, authLoading, login, logout }),
-    [authUser, authLoading, login, logout],
+    () => ({ authUser, authLoading, login, logout, reloadUser }),
+    [authUser, authLoading, login, logout, reloadUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,9 @@
 export type Role = "employee" | "manager" | "admin";
 
+/** Optional demographic groups (admin-only). A birth year is never stored. "undisclosed" = prefers not to say. */
+export type Generation = "gen_z" | "millennial" | "gen_x" | "boomer" | "undisclosed";
+export type StaffType = "academic" | "administrative" | "undisclosed";
+
 export type Lang = "en" | "ar";
 
 /** A bilingual string. Every user-facing label in mock data carries both. */
@@ -27,6 +31,9 @@ export interface StaffMember {
   college: Bi;
   role: Role;
   gender: "male" | "female";
+  /** Only present in the Admin's user management. null = not recorded. */
+  generation?: Generation | null;
+  staffType?: StaffType | null;
   staffId: string;
   email: string;
   office: Bi;

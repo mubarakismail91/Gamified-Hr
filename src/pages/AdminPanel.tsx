@@ -38,17 +38,20 @@ import { DateStamp } from "@/components/common/DateStamp";
 import { EmptyState } from "@/components/common/EmptyState";
 import {
   BadgeDistributionChart,
-  DemographicsBar,
   ParticipationChart,
   SdtScoresChart,
   XpByDeptChart,
 } from "@/components/admin/Charts";
 import { QuestManager } from "@/components/admin/QuestManager";
 import { UserManager } from "@/components/admin/UserManager";
+import { DemographicsPanel } from "@/components/admin/DemographicsPanel";
+import { ResearchExportCard } from "@/components/admin/ResearchExportCard";
+import { PrivacyPanel } from "@/components/admin/PrivacyPanel";
+import { LedgerCheckCard } from "@/components/admin/LedgerCheckCard";
 import { DepartmentManager } from "@/components/admin/DepartmentManager";
 import { useSession } from "@/context/SessionContext";
 import { useAuditQuery } from "@/queries/useAudit";
-import { useAnalyticsOverviewQuery, useDemographicsQuery } from "@/queries/useAnalytics";
+import { useAnalyticsOverviewQuery } from "@/queries/useAnalytics";
 import {
   useQuestionBankQuery,
   useSdtScoresQuery,
@@ -66,7 +69,6 @@ export default function AdminPanel() {
   const { role } = useSession();
   const auditQuery = useAuditQuery();
   const overviewQuery = useAnalyticsOverviewQuery();
-  const demographicsQuery = useDemographicsQuery();
   const surveyRoundsQuery = useSurveyRoundsQuery();
   const sdtScoresQuery = useSdtScoresQuery();
   const createSurveyRound = useCreateSurveyRoundMutation();
@@ -169,6 +171,7 @@ export default function AdminPanel() {
           <TabsTrigger value="quests">{t("admin.tabs.quests")}</TabsTrigger>
           <TabsTrigger value="surveys">{t("admin.tabs.surveys")}</TabsTrigger>
           <TabsTrigger value="audit">{t("admin.tabs.audit")}</TabsTrigger>
+          <TabsTrigger value="privacy">{t("admin.tabs.privacy")}</TabsTrigger>
         </TabsList>
 
         {/* Analytics */}
@@ -213,21 +216,9 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* Demographics — gender only for now: the other demo dimensions
-            (academic/administrative split, college) aren't backed by real
-            data yet (no employmentType column; college is never set by the
-            real user form), so they're dropped rather than shown empty. */}
-        <TabsContent value="demographics" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.filterGender")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DemographicsBar data={demographicsQuery.data?.byGender ?? []} />
-              </CardContent>
-            </Card>
-          </div>
+        {/* Demographics — headcounts, engagement and SDT averages by group (k = 5, enforced server-side). */}
+        <TabsContent value="demographics">
+          <DemographicsPanel />
         </TabsContent>
 
         {/* User management */}
@@ -297,10 +288,16 @@ export default function AdminPanel() {
               );
             })}
           </div>
+          <ResearchExportCard />
         </TabsContent>
 
         {/* Audit trail */}
+        <TabsContent value="privacy">
+          <PrivacyPanel />
+        </TabsContent>
+
         <TabsContent value="audit" className="space-y-3">
+          <LedgerCheckCard />
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <ScrollText className="h-4 w-4" />
             {t("admin.auditNote")}

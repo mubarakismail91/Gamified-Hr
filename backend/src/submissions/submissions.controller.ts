@@ -4,12 +4,17 @@ import type { Response } from 'express';
 import { SubmissionsService } from './submissions.service';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { submissionFileOptions } from './multer.config';
+import { sendStoredFile } from '../files/file-store';
+import { PrismaService } from '../prisma/prisma.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @Controller('submissions')
 export class SubmissionsController {
-  constructor(private submissions: SubmissionsService) {}
+  constructor(
+    private submissions: SubmissionsService,
+    private prisma: PrismaService,
+  ) {}
 
   @Roles('employee')
   @Post()
@@ -28,6 +33,6 @@ export class SubmissionsController {
   @Get(':id/file')
   async downloadFile(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
     const submission = await this.submissions.findDownloadable(id, user);
-    res.download(submission.filePath as string, submission.fileName ?? 'submission');
+    await sendStoredFile(this.prisma, res, submission.fileId as string, submission.fileName ?? 'submission');
   }
 }

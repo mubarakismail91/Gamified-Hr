@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AtSign, Award, IdCard, MapPin, Medal, Network, Sparkles, Swords } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { EmploymentNotice } from "@/components/common/EmploymentNotice";
+import { DownloadMyDataButton } from "@/components/privacy/DownloadMyDataButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -16,7 +18,7 @@ import { useSession } from "@/context/SessionContext";
 import { useMyActivity } from "@/queries/useActivity";
 import { useMyAssignmentsQuery } from "@/queries/useAssignments";
 import { useMyBadges } from "@/queries/useBadges";
-import { useKudosQuery } from "@/queries/useKudos";
+import { useKudosReceivedCountQuery, useRecentKudosReceivedQuery } from "@/queries/useKudos";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
 import { levelFromXp } from "@/lib/xp";
@@ -49,8 +51,9 @@ export default function Profile() {
   const prog = levelFromXp(user.totalXp);
   const rankName = lang === "ar" ? prog.current.nameAr : prog.current.nameEn;
   const badges = useMyBadges();
-  const kudosQuery = useKudosQuery();
-  const kudos = (kudosQuery.data ?? []).filter((k) => k.toId === user.id);
+  // A server-side count: the Kudos feed only holds the latest entries (load test, item 8).
+  const kudosReceived = useKudosReceivedCountQuery().data ?? 0;
+  const kudos = useRecentKudosReceivedQuery(3).data ?? [];
   const skillsQuery = useSkillsQuery();
   const SKILLS = skillsQuery.data ?? [];
   const showBadges = canViewBadges(role);
@@ -59,7 +62,8 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("profile.title")} />
+      <PageHeader title={t("profile.title")} actions={<DownloadMyDataButton />} />
+      <EmploymentNotice />
 
       {/* Identity card */}
       <Card>
@@ -111,7 +115,7 @@ export default function Profile() {
               tone="gold"
             />
           )}
-          <StatCard icon={Award} label={t("profile.kudosReceived")} value={formatNumber(kudos.length, lang)} />
+          <StatCard icon={Award} label={t("profile.kudosReceived")} value={formatNumber(kudosReceived, lang)} />
           <StatCard
             icon={Swords}
             label={t("profile.questsDone")}

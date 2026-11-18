@@ -5,6 +5,7 @@ import type { Bi } from '../common/dto/staff-member.dto';
 import type { AuditEntryDto } from './dto/audit-entry.dto';
 
 const UNKNOWN: Bi = { en: '—', ar: '—' };
+const SYSTEM: Bi = { en: 'System', ar: 'النظام' };
 
 /** Static, human-readable label per audit action code — mirrors the demo's fixed Bi action strings (e.g. makeAudit("Sent Kudos", ...) in DemoDataContext.tsx). */
 function actionLabel(action: string, metadata: unknown): Bi {
@@ -49,6 +50,35 @@ function actionLabel(action: string, metadata: unknown): Bi {
         ? { en: `Awarded badge: ${badgeName}`, ar: `منح وسام: ${badgeName}` }
         : { en: 'Awarded badge', ar: 'منح وسامًا' };
     }
+    case 'ledger.verified':
+      return meta.ok
+        ? { en: 'Verified the XP ledger: all intact', ar: 'تحقّق من سجل النقاط: سليم بالكامل' }
+        : { en: `Verified the XP ledger: ${Number(meta.problems ?? 0)} problem(s) found`, ar: `تحقّق من سجل النقاط: ${Number(meta.problems ?? 0)} مشكلة` };
+    case 'privacy.dataExported':
+      return { en: 'Downloaded their personal data', ar: 'نزّل بياناته الشخصية' };
+    case 'user.erased':
+      return { en: 'Erased personal data', ar: 'محا البيانات الشخصية' };
+    case 'retention.ran':
+      return {
+        en: `Retention cleanup: ${Number(meta.notificationsDeleted ?? 0)} notifications, ${Number(meta.sessionsDeleted ?? 0)} sessions, ${Number(meta.accountsAnonymised ?? 0)} accounts`,
+        ar: `تنظيف الاحتفاظ: ${Number(meta.notificationsDeleted ?? 0)} إشعار، ${Number(meta.sessionsDeleted ?? 0)} جلسة، ${Number(meta.accountsAnonymised ?? 0)} حساب`,
+      };
+    case 'squad.created':
+      return { en: `Created squad: ${String(meta.name ?? '')}`, ar: `أنشأ فريقًا: ${String(meta.name ?? '')}` };
+    case 'squad.disbanded':
+      return { en: `Disbanded squad: ${String(meta.name ?? '')}`, ar: `حلّ فريقًا: ${String(meta.name ?? '')}` };
+    case 'challenge.created':
+      return { en: `Published squad challenge: ${String(meta.title ?? '')}`, ar: `نشر تحديًا للفرق: ${String(meta.title ?? '')}` };
+    case 'challenge.completed':
+      return { en: `Squad completed challenge: ${String(meta.challenge ?? '')}`, ar: `أنجز فريق التحدي: ${String(meta.challenge ?? '')}` };
+    case 'research.consentGiven':
+      return { en: 'Joined the research track', ar: 'انضم إلى مسار البحث' };
+    case 'research.consentWithdrawn':
+      return { en: 'Left the research track', ar: 'انسحب من مسار البحث' };
+    case 'research.exported':
+      return meta.dataset === 'participants'
+        ? { en: 'Exported research-track data (pseudonymised)', ar: 'صدّر بيانات مسار البحث (بأسماء مستعارة)' }
+        : { en: 'Exported anonymous survey aggregates', ar: 'صدّر الملخصات المجهولة للاستبانات' };
     default:
       return { en: action, ar: action };
   }
@@ -62,7 +92,7 @@ export class AuditService {
     const rows = await this.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
     if (rows.length === 0) return [];
 
-    const actorIds = Array.from(new Set(rows.map((r) => r.actorId)));
+    const actorIds = Array.from(new Set(rows.map((r) => r.actorId).filter((id): id is string => id !== null)));
     const userTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'User' && r.targetId).map((r) => r.targetId!)));
     const questTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'Quest' && r.targetId).map((r) => r.targetId!)));
     const deptTargetIds = Array.from(new Set(rows.filter((r) => r.targetType === 'Department' && r.targetId).map((r) => r.targetId!)));
@@ -97,7 +127,7 @@ export class AuditService {
     return rows.map((r) => ({
       id: r.id,
       at: r.createdAt,
-      actor: actorMap.get(r.actorId) ?? UNKNOWN,
+      actor: r.actorId === null ? SYSTEM : (actorMap.get(r.actorId) ?? UNKNOWN),
       action: actionLabel(r.action, r.metadata),
       target: this.resolveTarget(r, { userMap, questMap, deptMap, assignmentMap }),
     }));

@@ -30,6 +30,8 @@ import {
 import { ALL_DEPARTMENTS, type Metric, type Period, type Scope } from "@/api/leaderboardApi";
 import { useLocale } from "@/hooks/useLocale";
 import { formatNumber, cn } from "@/lib/utils";
+import { SquadLeaderboard } from "@/components/squads/SquadLeaderboard";
+import { EmploymentNotice } from "@/components/common/EmploymentNotice";
 
 export default function Leaderboard() {
   const { t } = useTranslation();
@@ -71,6 +73,7 @@ export default function Leaderboard() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("leaderboard.title")} subtitle={t("leaderboard.subtitle")} />
+      <EmploymentNotice />
 
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -263,6 +266,9 @@ export default function Leaderboard() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Team leaderboard (FR9) */}
+      <SquadLeaderboard period={period} />
     </div>
   );
 }

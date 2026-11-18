@@ -9,6 +9,28 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "start:dev"
+      ],
+      "port": 4000
+    },
+    {
+      "name": "api-load",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "load:server"
+      ],
+      "port": 4100
     }
   ]
 }

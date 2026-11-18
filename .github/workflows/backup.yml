@@ -1,0 +1,61 @@
+name: Database backup
+
+# Nightly encrypted backup of the production database (item 12).
+# The repository is PUBLIC, so the dump is encrypted (AES-256, PBKDF2) before it is uploaded:
+# without BACKUP_PASSPHRASE the artifact is unreadable. Daily copies are kept 7 days; Sunday's copy
+# is kept 28 days (about 4 weekly backups). Restore steps: DEPLOYMENT.md -> "Restore a backup".
+#
+# Needs two repository secrets (Settings -> Secrets and variables -> Actions):
+#   BACKUP_DATABASE_URL  Neon connection string (direct host, ?sslmode=require)
+#   BACKUP_PASSPHRASE    long random passphrase; store it somewhere safe outside GitHub too
+# Until both exist, the workflow does nothing.
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 00:00 UTC = 03:00 Riyadh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configuration
+        id: cfg
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DB" ] || [ -z "$PASS" ]; then
+            echo "::notice::Backups are not configured yet (BACKUP_DATABASE_URL / BACKUP_PASSPHRASE secrets)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dump, check and encrypt
+        id: dump
+        if: steps.cfg.outputs.skip != 'true'
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%dT%H%MZ)
+          # pg_dump from PostgreSQL 18 can dump any older server version.
+          docker run --rm -e DB postgres:18 sh -c 'pg_dump --format=custom --no-owner "$DB"' > db.dump
+          docker run --rm -v "$PWD:/w" postgres:18 pg_restore --list /w/db.dump > /dev/null   # readable?
+          test -s db.dump
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:PASS -in db.dump -out "iu-hr-$stamp.dump.enc"
+          rm db.dump
+          echo "file=iu-hr-$stamp.dump.enc" >> "$GITHUB_OUTPUT"
+          if [ "$(date -u +%u)" = "7" ]; then echo "days=28" >> "$GITHUB_OUTPUT"; else echo "days=7" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Upload encrypted backup
+        if: steps.cfg.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dump.outputs.file }}
+          path: ${{ steps.dump.outputs.file }}
+          retention-days: ${{ steps.dump.outputs.days }}
+          if-no-files-found: error

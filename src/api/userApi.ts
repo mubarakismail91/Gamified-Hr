@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { Role, StaffMember } from "@/data";
+import type { Generation, Role, StaffMember, StaffType } from "@/data";
 
 export interface CreateUserInput {
   nameEn: string;
@@ -9,6 +9,8 @@ export interface CreateUserInput {
   departmentId: string | null;
   role: Role;
   gender?: "male" | "female";
+  generation?: Generation | null;
+  staffType?: StaffType | null;
   startingXp?: number;
 }
 
@@ -20,6 +22,8 @@ export interface UpdateUserInput {
   departmentId?: string | null;
   role?: Role;
   gender?: "male" | "female";
+  generation?: Generation | null;
+  staffType?: StaffType | null;
   isActive?: boolean;
 }
 
@@ -55,8 +59,13 @@ export async function deactivateUser(id: string): Promise<void> {
   await apiClient.delete(`/users/${id}`);
 }
 
-export async function awardXp(id: string, amount: number, reason?: string): Promise<StaffMember> {
-  const res = await apiClient.post<StaffMember>(`/users/${id}/award-xp`, { amount, reason });
+/** idempotencyKey: one per award attempt, so a double-click or a network retry can't award twice. */
+export async function awardXp(id: string, amount: number, reason?: string, idempotencyKey?: string): Promise<StaffMember> {
+  const res = await apiClient.post<StaffMember>(
+    `/users/${id}/award-xp`,
+    { amount, reason },
+    idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
+  );
   return res.data;
 }
 

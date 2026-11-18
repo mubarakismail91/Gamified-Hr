@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { XpLedgerService } from '../ledger/xp-ledger.service';
 import { BadgesService } from '../badges/badges.service';
 import { toStaffMemberDto } from '../common/utils/staff-member.mapper';
 import { ZERO_PERIOD_STATS } from '../common/utils/xp-period.util';
@@ -15,11 +16,17 @@ export class KudosService {
   constructor(
     private prisma: PrismaService,
     private badges: BadgesService,
+    private ledger: XpLedgerService,
   ) {}
 
   /** Platform-wide feed, most recent first — same as the demo's Kudos page. */
-  async findAll(): Promise<KudoDto[]> {
-    const kudos = await this.prisma.kudo.findMany({ orderBy: { createdAt: 'desc' } });
+  async findAll(limit = 50, toUserId?: string): Promise<KudoDto[]> {
+    // The latest `limit` only: the full history grows forever (6,000 rows at 3,000 staff in the load test).
+    const kudos = await this.prisma.kudo.findMany({
+      where: toUserId ? { toUserId } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
     if (kudos.length === 0) return [];
 
     const userIds = Array.from(new Set(kudos.flatMap((k) => [k.fromUserId, k.toUserId])));
@@ -55,6 +62,11 @@ export class KudosService {
       }));
   }
 
+  /** How many Kudos this person has received (for the Profile stat, without downloading the feed). */
+  async receivedCount(userId: string): Promise<{ count: number }> {
+    return { count: await this.prisma.kudo.count({ where: { toUserId: userId } }) };
+  }
+
   /** Sends Kudos and awards the recipient a fixed XP bonus, same as the demo. */
   async send(dto: SendKudoDto, fromUserId: string): Promise<void> {
     if (dto.toUserId === fromUserId) throw new BadRequestException('You cannot send Kudos to yourself.');
@@ -74,9 +86,17 @@ export class KudosService {
       data: { fromUserId, toUserId: dto.toUserId, value: dto.value, messageEn: message, messageAr: message },
     });
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: dto.toUserId }, data: { totalXp: { increment: KUDO_XP_BONUS } } }),
-      this.prisma.activityLog.create({
+    await this.prisma.$transaction(async (tx) => {
+      await this.ledger.record(tx, {
+        userId: dto.toUserId,
+        amount: KUDO_XP_BONUS,
+        source: 'kudos_received',
+        refType: 'Kudo',
+        refId: kudo.id,
+        idempotencyKey: `kudo:${kudo.id}`,
+        actorId: fromUserId,
+      });
+      await tx.activityLog.create({
         data: {
           userId: dto.toUserId,
           kind: 'kudo',
@@ -86,8 +106,8 @@ export class KudosService {
           refType: 'Kudo',
           refId: kudo.id,
         },
-      }),
-      this.prisma.notification.create({
+      });
+      await tx.notification.create({
         data: {
           userId: dto.toUserId,
           kind: 'social',
@@ -96,8 +116,8 @@ export class KudosService {
           bodyEn: message,
           bodyAr: message,
         },
-      }),
-    ]);
+      });
+    });
 
     await logAudit(this.prisma, {
       actorId: fromUserId,

@@ -1,9 +1,5 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+import type { PrismaClient } from '@prisma/client';
+import { runScript } from './prisma-client';
 
 /**
  * Skill catalog — mirrors the frontend demo's static SKILLS array
@@ -184,7 +180,8 @@ const SKILLS = [
   },
 ];
 
-async function main() {
+/** Creates or updates the skill catalog. Safe to re-run. */
+export async function seedSkills(prisma: PrismaClient): Promise<number> {
   for (const skill of SKILLS) {
     await prisma.skill.upsert({
       where: { id: skill.id },
@@ -192,14 +189,10 @@ async function main() {
       update: skill,
     });
   }
-  console.log(`Seeded ${SKILLS.length} skills.`);
+  return SKILLS.length;
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// `npm run seed:skills`
+if (require.main === module) {
+  runScript(async (prisma) => console.log(`Seeded ${await seedSkills(prisma)} skills.`));
+}

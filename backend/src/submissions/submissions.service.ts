@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { assertNotExpired } from '../common/utils/quest-expiry.util';
 import { toSubmissionDto } from '../common/utils/quest.mapper';
+import { storeUpload, uploadedFileName } from '../files/file-store';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import type { SubmissionDto } from '../common/dto/quest.dto';
 
@@ -30,25 +31,27 @@ export class SubmissionsService {
 
     const employeeRow = await this.prisma.user.findUniqueOrThrow({ where: { id: employee.id } });
 
-    const [submission] = await this.prisma.$transaction([
-      this.prisma.questSubmission.create({
+    const submission = await this.prisma.$transaction(async (tx) => {
+      const fileId = file ? await storeUpload(tx, file) : undefined;
+      const created = await tx.questSubmission.create({
         data: {
           assignmentId: assignment.id,
           employeeId: employee.id,
           // File is optional throughout — requireFile on the Quest is only
           // ever a soft recommendation shown in the UI, never enforced here.
-          fileName: file?.originalname,
-          filePath: file?.path,
+          fileName: file ? uploadedFileName(file) : undefined,
+          fileId,
           fileType: file?.mimetype,
           fileSize: file?.size,
           notes: dto.notes || undefined,
         },
-      }),
-      this.prisma.questAssignment.update({
+      });
+      await tx.questAssignment.update({
         where: { id: assignment.id },
         data: { status: 'pending_approval', submittedAt: new Date(), rejectionNote: null },
-      }),
-    ]);
+      });
+      return created;
+    });
 
     if (employeeRow.departmentId) {
       const dept = await this.prisma.department.findUnique({ where: { id: employeeRow.departmentId } });
@@ -72,7 +75,7 @@ export class SubmissionsService {
   /** Permission-checked lookup for the file-download endpoint — throws unless the viewer is the submitter, their department's manager, or an Admin. */
   async findDownloadable(submissionId: string, actor: AuthenticatedUser) {
     const submission = await this.prisma.questSubmission.findUnique({ where: { id: submissionId } });
-    if (!submission || !submission.filePath) throw new NotFoundException('No file attached to this submission.');
+    if (!submission || !submission.fileId) throw new NotFoundException('No file attached to this submission.');
 
     if (actor.role !== 'admin' && actor.id !== submission.employeeId) {
       const dept = await this.prisma.department.findFirst({ where: { managerId: actor.id } });
