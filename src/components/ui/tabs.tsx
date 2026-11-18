@@ -11,7 +11,8 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
+      // min-height (not a fixed height) so a list that wraps onto a second row grows instead of overlapping the content below
+      "inline-flex h-auto min-h-[2.5rem] items-center justify-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
       className,
     )}
     {...props}
